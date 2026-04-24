@@ -2,8 +2,12 @@
   "version": 2,
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "/api/server.ts"
+    },
+    {
       "source": "/webhook/:path*",
-      "destination": "/api/index.ts"
+      "destination": "/api/server.ts"
     }
   ]
 }
