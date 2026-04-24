@@ -1,5 +1,7 @@
 import { Router, Request, Response } from "express";
 import type { FormUpdateEvent } from "../types.js";
+import { FormUpdate } from "../models/FormUpdate.js";
+import { Submission } from "../models/Submission.js";
 
 const router = Router();
 
@@ -174,7 +176,6 @@ router.post("/webhook/vapi", async (req: Request, res: Response) => {
     // Handle end-of-call report
     if (type === "end-of-call-report") {
       try {
-        const { Submission } = await import("../models/Submission.js");
         const schemaId = body?.call?.metadata?.schemaId;
         const userId = body?.call?.metadata?.userId;
         const formData = body?.analysis?.structuredData || {};
@@ -218,7 +219,6 @@ router.get("/form-updates/:sessionId", async (req: Request, res: Response) => {
   const { lastSeen } = req.query; // Optional timestamp to only get new ones
   
   try {
-    const { FormUpdate } = await import("../models/FormUpdate.js");
     const query: any = { sessionId };
     if (lastSeen) query.createdAt = { $gt: new Date(lastSeen as string) };
     
@@ -243,7 +243,6 @@ async function handleFormFieldUpdate(
 
   // 2. Persist to DB for cross-instance polling (Critical for Vercel/Serverless)
   try {
-    const { FormUpdate } = await import("../models/FormUpdate.js");
     await new FormUpdate({ sessionId, field, value }).save();
     console.log(`💾 Persisted update to DB for polling: ${field}`);
   } catch (err) {
