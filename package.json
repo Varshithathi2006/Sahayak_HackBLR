@@ -10,6 +10,11 @@
     "build:frontend": "cd frontend && npm run build",
     "build:srv": "cd srv && npm run build",
     "start:frontend": "cd frontend && npm run start",
-    "start:backend": "cd backend && npm run start"
+    "start:srv": "cd srv && npm run start"
+  },
+  "dependencies": {
+    "next": "16.2.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   }
 }
