@@ -4,7 +4,7 @@ import { FormSchema } from "../models/FormSchema.js";
 import { Submission } from "../models/Submission.js";
 import { authenticate, authorize, AuthRequest } from "../middleware/auth.js";
 import { qdrantClient, COLLECTION_KNOWLEDGE } from "../services/qdrant.js";
-import { getEmbedding } from "../services/embeddings.js";
+import { getEmbedding } from "../services/vectorService.js";
 import fs from "fs";
 
 const router = Router();

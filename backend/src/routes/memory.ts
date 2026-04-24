@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { qdrantClient, COLLECTION_MEMORY } from "../services/qdrant.js";
-import { getEmbedding, zeroVector } from "../services/embeddings.js";
+import { getEmbedding, zeroVector } from "../services/vectorService.js";
 import type { UserProfile, AgriSubsidyForm } from "../types.js";
 
 const router = Router();

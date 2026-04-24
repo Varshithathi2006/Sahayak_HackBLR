@@ -1,5 +1,5 @@
 import { qdrantClient, COLLECTION_KNOWLEDGE } from "../services/qdrant.js";
-import { getEmbedding } from "../services/embeddings.js";
+import { getEmbedding } from "../services/vectorService.js";
 import dotenv from "dotenv";
 dotenv.config();
 

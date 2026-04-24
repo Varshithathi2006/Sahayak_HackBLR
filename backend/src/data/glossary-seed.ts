@@ -1,5 +1,5 @@
 import { qdrantClient, COLLECTION_GLOSSARY } from "../services/qdrant.js";
-import { getEmbedding } from "../services/embeddings.js";
+import { getEmbedding } from "../services/vectorService.js";
 import type { GlossaryEntry } from "../types.js";
 import dotenv from "dotenv";
 dotenv.config();
