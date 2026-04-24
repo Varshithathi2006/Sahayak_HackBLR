@@ -2,6 +2,8 @@ import { Router, Request, Response } from "express";
 import type { FormUpdateEvent } from "../types.js";
 import { FormUpdate } from "../models/FormUpdate.js";
 import { Submission } from "../models/Submission.js";
+import { qdrantClient, COLLECTION_KNOWLEDGE } from "../services/qdrant.js";
+import { getEmbedding, zeroVector } from "../services/vectorService.js";
 
 const router = Router();
 
@@ -149,8 +151,7 @@ router.post("/webhook/vapi", async (req: Request, res: Response) => {
             const { query } = rawParameters;
             const schemaId = message?.call?.metadata?.schemaId || body?.call?.metadata?.schemaId;
             
-            const { qdrantClient, COLLECTION_KNOWLEDGE } = await import("../services/qdrant.js");
-            const { getEmbedding, zeroVector } = await import("../services/embeddings.js");
+            // NO MORE DYNAMIC IMPORTS
             
             const vector = process.env.OPENAI_API_KEY ? await getEmbedding(query || "") : zeroVector;
             const filter = schemaId ? { must: [{ key: "schemaId", match: { value: schemaId } }] } : undefined;
