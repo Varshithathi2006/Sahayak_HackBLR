@@ -18,7 +18,7 @@ router.post("/save", async (req: Request, res: Response) => {
   try {
     const profileText = buildProfileText(form);
     const useMock = !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "your_openai_api_key_here";
-    const vector = useMock ? zeroVector() : await getEmbedding(profileText);
+    const vector = useMock ? zeroVector : await getEmbedding(profileText);
 
     const profile: UserProfile = {
       userId,
@@ -54,7 +54,7 @@ router.get("/:userId", async (req: Request, res: Response) => {
 
   try {
     const useMock = !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "your_openai_api_key_here";
-    const vector = useMock ? zeroVector() : await getEmbedding(`User ID: ${userId}`);
+    const vector = useMock ? zeroVector : await getEmbedding(`User ID: ${userId}`);
 
     const results = await qdrantClient.search(COLLECTION_MEMORY, {
       vector,

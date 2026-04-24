@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import type { FormUpdateEvent, FormFieldKey, AgriSubsidyForm } from "../types.js";
+import type { FormUpdateEvent } from "../types.js";
 
 const router = Router();
 
@@ -7,11 +7,41 @@ const router = Router();
 // Maps sessionId → Express Response (SSE stream)
 export const sseClients = new Map<string, Response>();
 
-// Tracks skipped fields per session (non-linear conversation flow)
-const skippedFields = new Map<string, Set<FormFieldKey>>();
+// Mapping of Vapi Call ID to Browser Session ID for robust data routing
+// This handles cases where Vapi metadata might be missing in some webhook triggers
+const callIdToSessionId = new Map<string, string>();
 
-// Business-related fields to skip when hasBusiness = false
-const BUSINESS_FIELDS: FormFieldKey[] = ["businessName", "businessType", "businessIncome"];
+// FALLBACK: The most recently registered browser session.
+// When Vapi fails to forward metadata (which happens often), we route to this session.
+let lastRegisteredSession: string | null = null;
+
+/**
+ * POST /api/register-session
+ * Frontend calls this before starting a Vapi call to register the active session.
+ */
+router.post("/register-session", (req: Request, res: Response) => {
+  const { sessionId } = req.body;
+  if (sessionId) {
+    lastRegisteredSession = sessionId;
+    console.log(`📋 Session registered as active: ${sessionId}`);
+    console.log(`📡 Active SSE clients: [${Array.from(sseClients.keys()).join(", ") || "NONE"}]`);
+  }
+  res.json({ success: true, sessionId });
+});
+
+/**
+ * POST /api/link-call
+ * Frontend calls this after Vapi returns a call ID to create the explicit mapping.
+ */
+router.post("/link-call", (req: Request, res: Response) => {
+  const { callId, sessionId } = req.body;
+  if (callId && sessionId) {
+    callIdToSessionId.set(callId, sessionId);
+    lastRegisteredSession = sessionId;
+    console.log(`🔗 Explicit link: Call [${callId}] → Session [${sessionId}]`);
+  }
+  res.json({ success: true });
+});
 
 /**
  * GET /api/form-events?sessionId=xxx
@@ -20,28 +50,36 @@ const BUSINESS_FIELDS: FormFieldKey[] = ["businessName", "businessType", "busine
 router.get("/form-events", (req: Request, res: Response) => {
   const sessionId = (req.query.sessionId as string) || "default";
 
+  // Explicit CORS headers for SSE
+  const origin = req.headers.origin || "*";
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  
   res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
-  res.flushHeaders();
 
-  // Register client
-  sseClients.set(sessionId, res);
-  console.log(`📡 SSE client connected: ${sessionId} (${sseClients.size} total)`);
-
-  // Send heartbeat every 25 seconds to keep connection alive
+  // Keep-alive heartbeat (every 15s)
   const heartbeat = setInterval(() => {
     res.write(": heartbeat\n\n");
-  }, 25000);
+  }, 15000);
 
-  // Send initial connected event
+  // Connection Warmup - sending some bypass data to trigger browser processing
+  res.write(": warmup\n\n");
+  res.flushHeaders();
+
+  // Register client AFTER warm-up
+  sseClients.set(sessionId, res);
+  console.log(`📡 [SSE] NEW CONNECTION: ${sessionId} (Active: ${sseClients.size})`);
+
+  // Immediate confirmation event
   sendSSE(res, { type: "status", message: "connected", sessionId });
 
   req.on("close", () => {
     clearInterval(heartbeat);
     sseClients.delete(sessionId);
-    console.log(`📡 SSE client disconnected: ${sessionId}`);
+    console.log(`📡 [SSE] CLOSED: ${sessionId}`);
   });
 });
 
@@ -50,132 +88,139 @@ router.get("/form-events", (req: Request, res: Response) => {
  * Receives function call events from Vapi and dispatches SSE updates.
  */
 router.post("/webhook/vapi", async (req: Request, res: Response) => {
-  const body = req.body;
-  const message = body?.message;
-  const type = message?.type;
+  try {
+    const body = req.body;
+    const type = body.type || body.message?.type || "Unknown";
+    const message = body.message || body;
+    const callId = body.callId || message?.call?.id || body?.call?.id;
+    const metadata = message?.metadata || body?.metadata || body?.message?.metadata || message?.call?.metadata || body?.call?.metadata;
+    
+    console.log(`📡 Vapi Event: [${type}] - Call: ${callId}`);
+    if (type === "end-of-call-report") console.log(`🛑 Call Ended Reason: ${body.endedReason || body.message?.endedReason || "unknown"}`);
 
-  // Global log for ALL Vapi traffic to diagnose tunnel/data issues
-  console.log(`📡 Vapi Webhook Received [Type: ${type}, MsgID: ${body?.messageId || 'N/A'}]`);
-  
-  if (type === "function-call") {
-    console.log(`📦 Full Call Object: ${JSON.stringify(message?.call, null, 2)}`);
-  }
+    if (body.transcript) console.log(`📝 Transcript: ${body.transcript}`);
+    if (body.toolCalls) console.log(`🛠️ Tool Calls: ${JSON.stringify(body.toolCalls)}`);
+    if (message?.transcript) console.log(`📝 Msg Transcript: ${message.transcript}`);
+    if (message?.toolCalls) console.log(`🛠️ Msg Tool Calls: ${JSON.stringify(message.toolCalls)}`);
 
-  // Handle both legacy 'function-call' and modern 'tool-calls'
-  if (type === "function-call" || type === "tool-calls") {
-    const callId = message?.call?.id || "default";
+    let sessionId = metadata?.sessionId || lastRegisteredSession;
+    if (callId && !sessionId) {
+      sessionId = callIdToSessionId.get(callId);
+    }
+    sessionId = sessionId || "default";
 
-    // Robust sessionId extraction
-    const sessionId = 
-      message?.call?.metadata?.sessionId || 
-      message?.customer?.metadata?.sessionId || 
-      body?.metadata?.sessionId || 
-      callId;
+    // ─── Phase 2: Tool Calls ──────────────────────────────────────────────────
+    if (type === "function-call" || type === "tool-calls") {
+      console.log(`🛠️ Processing Tool Calls for session: ${sessionId}`);
+      const calls = type === "tool-calls" ? (message?.toolCalls || []) : [message?.functionCall];
+      const results: any[] = [];
 
-    console.log(`📡 Webhook [${type}] received for Session: ${sessionId}`);
-
-    // Process all calls (Vapi can send multiple tools in one tool-calls message)
-    const calls = type === "tool-calls" ? (message?.toolCalls || []) : [message?.functionCall];
-    const results: any[] = [];
-
-    for (const call of calls) {
-      const functionName = type === "tool-calls" ? call?.function?.name : call?.name;
-      const parameters = type === "tool-calls" ? (JSON.parse(call?.function?.arguments || "{}")) : (call?.parameters || {});
-      
-      console.log(`🛠️  Executing tool: ${functionName}`);
-      let toolResult: unknown = { success: true };
-
-      switch (functionName) {
-        case "update_form_field": {
-          const { field, value } = parameters as { field: FormFieldKey; value: string | number | boolean };
-          toolResult = handleFormFieldUpdate(sessionId, field, value);
-          break;
+      for (const call of calls) {
+        const functionName = type === "tool-calls" ? call?.function?.name : call?.name;
+        const callId = type === "tool-calls" ? call?.id : null;
+        
+        let rawParameters: any = {};
+        try {
+          const args = type === "tool-calls" ? call?.function?.arguments : call?.parameters;
+          rawParameters = typeof args === "string" ? JSON.parse(args) : (args || {});
+        } catch (e) {
+          console.error(`     ❌ Error parsing tool arguments for ${functionName}:`, e);
+          rawParameters = {};
         }
 
-        case "ask_knowledge_base": {
-          const { query } = parameters as { query: string };
-          // ... (Knowledge search logic remains same)
-          try {
+        console.log(`🛠️  Tool: ${functionName} for Session: ${sessionId}`);
+        let toolResult: any = { success: true };
+
+        try {
+          if (functionName === "update_form_field") {
+            const { field, value } = rawParameters;
+            if (field) {
+              // Normalize boolean values
+              let normalizedValue = value;
+              if (typeof value === "string") {
+                if (value.toLowerCase() === "true") normalizedValue = true;
+                if (value.toLowerCase() === "false") normalizedValue = false;
+              }
+              toolResult = handleFormFieldUpdate(sessionId, field, normalizedValue);
+            }
+          } else if (functionName === "ask_knowledge_base") {
+            const { query } = rawParameters;
+            const schemaId = message?.call?.metadata?.schemaId || body?.call?.metadata?.schemaId;
+            
             const { qdrantClient, COLLECTION_KNOWLEDGE } = await import("../services/qdrant.js");
             const { getEmbedding, zeroVector } = await import("../services/embeddings.js");
-            const vector = process.env.OPENAI_API_KEY ? await getEmbedding(query) : zeroVector();
-            const searchResults = await qdrantClient.search(COLLECTION_KNOWLEDGE, { vector, limit: 1, with_payload: true });
+            
+            const vector = process.env.OPENAI_API_KEY ? await getEmbedding(query || "") : zeroVector;
+            const filter = schemaId ? { must: [{ key: "schemaId", match: { value: schemaId } }] } : undefined;
+
+            const searchResults = await qdrantClient.search(COLLECTION_KNOWLEDGE, { vector, limit: 1, filter, with_payload: true });
             toolResult = searchResults.length > 0 ? { answer: (searchResults[0].payload as any).content } : { answer: "No matching info found." };
-          } catch (err) {
-            toolResult = { error: "Search failed" };
           }
-          break;
+        } catch (err: any) {
+          console.error(`❌ Tool Execution Error [${functionName}]:`, err.message);
+          toolResult = { error: err.message || "Execution failed" };
         }
 
-        case "save_user_data":
-        case "retrieve_user_memory":
-          toolResult = { acknowledged: true };
-          break;
-
-        default:
-          console.warn(`⚠️  Unknown tool: ${functionName}`);
-          toolResult = { error: "Unknown tool" };
+        if (type === "tool-calls") {
+          results.push({ toolCallId: callId, result: toolResult });
+        } else {
+          results.push(toolResult);
+        }
       }
 
-      // Format result based on Vapi version
-      if (type === "tool-calls") {
-        results.push({ toolCallId: call.id, result: JSON.stringify(toolResult) });
-      } else {
-        results.push(toolResult);
+      return res.status(200).json(type === "tool-calls" ? { results } : { result: results[0] });
+    }
+
+    // Handle end-of-call report
+    if (type === "end-of-call-report") {
+      try {
+        const { Submission } = await import("../models/Submission.js");
+        const schemaId = body?.call?.metadata?.schemaId;
+        const userId = body?.call?.metadata?.userId;
+        const formData = body?.analysis?.structuredData || {};
+
+        if (schemaId && userId) {
+          await new Submission({ userId, schemaId, data: formData, status: "pending" }).save();
+          console.log(`✅ Submission saved.`);
+        }
+      } catch (err) {
+        console.error("❌ Save failed:", err);
       }
     }
 
-    // Send response back to Vapi
-    if (type === "tool-calls") {
-      res.json({ results });
-    } else {
-      res.json({ result: JSON.stringify(results[0]) });
-    }
-    return;
+    return res.status(200).json({ received: true });
+  } catch (globalErr: any) {
+    console.error("🚨 GLOBAL WEBHOOK FATAL ERROR:", globalErr);
+    return res.status(200).json({ error: "Internal processing error", details: globalErr.message });
   }
+});
 
-  // Handle end-of-call summary (save final form state)
-  if (type === "end-of-call-report") {
-    console.log("📋 End of call report received");
-    res.json({ received: true });
-    return;
+/**
+ * POST /api/test-link
+ */
+router.post("/test-link", (req: Request, res: Response) => {
+  const { sessionId } = req.body;
+  if (!sessionId || !sseClients.has(sessionId)) {
+    return res.status(404).json({ error: "No active session found" });
   }
-
-  res.json({ received: true });
+  handleFormFieldUpdate(sessionId, "fullName", "DIAGNOSTIC_LINK_OK");
+  res.json({ success: true });
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function handleFormFieldUpdate(
   sessionId: string,
-  field: FormFieldKey,
+  field: string,
   value: string | number | boolean
-): { success: boolean; skipped?: FormFieldKey[] } {
+): { success: boolean } {
   const client = sseClients.get(sessionId);
-
-  // Handle non-linear skipping logic
-  if (field === "hasBusiness" && value === false) {
-    if (!skippedFields.has(sessionId)) skippedFields.set(sessionId, new Set());
-    const skip = skippedFields.get(sessionId)!;
-    BUSINESS_FIELDS.forEach((f) => skip.add(f));
-
-    // Notify frontend to hide business section
-    if (client) {
-      sendSSE(client, { type: "form_update", field: "hasBusiness", value: false, sessionId });
-      BUSINESS_FIELDS.forEach((f) => {
-        sendSSE(client, { type: "form_update", field: f, value: "__skipped__", sessionId });
-      });
-    }
-
-    return { success: true, skipped: BUSINESS_FIELDS };
-  }
-
-  // Normal field update
   if (client) {
-    const event: FormUpdateEvent = { type: "form_update", field, value, sessionId };
-    sendSSE(client, event);
+    console.log(`✅ Dispatching update for ${field} to session ${sessionId}: ${value}`);
+    sendSSE(client, { type: "form_update", field, value, sessionId });
+  } else {
+    console.warn(`❌ SSE DISPATCH FAIL: No active client for session ${sessionId}.`);
   }
-
   return { success: true };
 }
 

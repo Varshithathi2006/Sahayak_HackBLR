@@ -1,90 +1,56 @@
 @import "tailwindcss";
 
 :root {
-  --font-sans: var(--font-inter), system-ui, sans-serif;
-  
-  /* Formal Institutional Palette */
-  --portal-navy: #0f172a;    /* slate-900 */
-  --portal-blue: #1e293b;    /* slate-800 */
-  --portal-accent: #2563eb;  /* blue-600 */
-  --portal-accent-hover: #1d4ed8;
-  --portal-border: #334155;  /* slate-700 */
-  --portal-text-muted: #94a3b8; /* slate-400 */
-  --portal-text-main: #f8fafc;  /* slate-50 */
-  
-  --background: var(--portal-navy);
-  --foreground: var(--portal-text-main);
+  --font-sans: 'DM Sans', var(--font-inter), system-ui, sans-serif;
+
+  /* Sahayak Design System */
+  --background: #070612;
+  --foreground: #ffffff;
+  --accent: #a78bfa;
+  --accent-2: #818cf8;
+  --muted: rgba(255, 255, 255, 0.4);
+  --border: rgba(255, 255, 255, 0.09);
+  --card-bg: rgba(255, 255, 255, 0.04);
+  --card-border: rgba(255, 255, 255, 0.09);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Institutional Design System */
+/* ── Animations ── */
 
-.dashboard-card {
-  background: var(--portal-blue);
-  border: 1px solid var(--portal-border);
-  border-radius: 4px; /* Sharper corners for formal look */
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-}
-
-.registry-row {
-  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
-  transition: background 0.2s ease;
-}
-
-.registry-row:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.025em;
-  text-transform: uppercase;
-}
-
-.status-pill-active {
-  background: rgba(34, 197, 94, 0.1);
-  color: #4ade80;
-  border: 1px solid rgba(34, 197, 94, 0.2);
-}
-
-.status-pill-ready {
-  background: rgba(148, 163, 184, 0.1);
-  color: var(--portal-text-muted);
-  border: 1px solid var(--portal-border);
-}
-
-/* Animations */
 @keyframes slide-in-right {
   from { transform: translateX(20px); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  to   { transform: translateX(0);    opacity: 1; }
 }
 
 .animate-slide-in {
   animation: slide-in-right 0.3s ease-out forwards;
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-::-webkit-scrollbar-track {
-  background: var(--portal-navy);
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease-out forwards;
 }
-::-webkit-scrollbar-thumb {
-  background: var(--portal-border);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--portal-text-muted);
+
+/* ── Custom Scrollbar ── */
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #070612; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+/* ── Selection ── */
+
+::selection {
+  background: rgba(167, 139, 250, 0.3);
+  color: #fff;
 }

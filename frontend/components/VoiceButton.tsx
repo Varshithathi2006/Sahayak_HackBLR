@@ -13,7 +13,10 @@ export default function VoiceButton() {
     if (callActive) {
       stopCall();
     } else {
+      // Clear previous form data but keep the same sessionId 
+      // so the SSE connection stays alive
       resetForm();
+      console.log("🔄 Form reset. Starting new voice session with existing SSE link.");
       startCall();
     }
   };
@@ -72,6 +75,29 @@ export default function VoiceButton() {
           animation: progress 2s ease-in-out infinite;
         }
       `}</style>
+      
+      {/* Hidden Diagnostic Button (Shift+Click 'Standby' to see, or just click small dot) */}
+      <div className="mt-4 flex flex-col items-center">
+        <button 
+          onClick={async () => {
+            const { sessionId } = useFormStore.getState();
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+            console.log("🧪 Triggering manual diagnostic test for:", sessionId);
+            try {
+              await fetch(`${API_URL}/api/test-link`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sessionId })
+              });
+            } catch (e) {
+              console.error("❌ Test Trigger Failed:", e);
+            }
+          }}
+          className="text-[9px] text-slate-800 hover:text-slate-600 uppercase font-black tracking-tighter transition-colors"
+        >
+          [ Manual Pipe Test ]
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,11 +1,30 @@
 "use client";
 
 import { useFormStore } from "@/lib/formStore";
-import { SUPPORTED_LANGUAGES } from "@/lib/localizations";
+import { SUPPORTED_LANGUAGES, getLanguageConfig } from "@/lib/localizations";
 import { Languages } from "lucide-react";
+import { useVapiCall } from "@/hooks/useVapiCall";
 
 export default function LanguageSelector() {
   const { selectedLanguage, setLanguage, callActive } = useFormStore();
+  const { setAssistantOverrides } = useVapiCall();
+
+  const handleLanguageChange = (code: string) => {
+    setLanguage(code);
+    
+    // If a call is active, sync the language with the voice assistant
+    if (callActive) {
+      const config = getLanguageConfig(code);
+      setAssistantOverrides({
+        transcriber: {
+          provider: "deepgram",
+          model: "nova-2",
+          language: config.code === "en-IN" ? "en-IN" : config.code,
+        }
+      });
+      console.log(`🌐 Switched voice assistant language to: ${config.name}`);
+    }
+  };
 
   return (
     <div className="w-full space-y-3">
@@ -20,15 +39,14 @@ export default function LanguageSelector() {
         {SUPPORTED_LANGUAGES.map((lang) => (
           <button
             key={lang.code}
-            onClick={() => !callActive && setLanguage(lang.code)}
-            disabled={callActive}
+            onClick={() => handleLanguageChange(lang.code)}
             className={`
               flex flex-col items-center justify-center p-2 rounded border transition-all duration-200
               ${selectedLanguage === lang.code 
                 ? "bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
                 : "bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-400"
               }
-              ${callActive ? "opacity-40 cursor-not-allowed" : "cursor-pointer active:scale-95"}
+              cursor-pointer active:scale-95
             `}
           >
             <span className="text-[11px] font-bold leading-tight">{lang.nativeName}</span>

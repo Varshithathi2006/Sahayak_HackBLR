@@ -10,21 +10,31 @@ const router = Router();
  * Returns: { answer: string, source?: string }
  */
 router.post("/ask-knowledge", async (req: Request, res: Response) => {
-  const { query } = req.body as { query?: string };
-  if (!query) {
-    res.status(400).json({ error: "query is required" });
-    return;
-  }
+    const { query, schemaId } = req.body as { query?: string, schemaId?: string };
+    if (!query) {
+      res.status(400).json({ error: "query is required" });
+      return;
+    }
 
-  try {
-    const useMock = !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "your_openai_api_key_here";
-    const vector = useMock ? zeroVector() : await getEmbedding(query);
+    try {
+      const useMock = !process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "your_openai_api_key_here";
+      const vector = useMock ? zeroVector : await getEmbedding(query);
 
-    const results = await qdrantClient.search(COLLECTION_KNOWLEDGE, {
-      vector,
-      limit: 3,
-      with_payload: true,
-    });
+      const filter = schemaId ? {
+        must: [
+          {
+            key: "schemaId",
+            match: { value: schemaId }
+          }
+        ]
+      } : undefined;
+
+      const results = await qdrantClient.search(COLLECTION_KNOWLEDGE, {
+        vector,
+        limit: 3,
+        filter,
+        with_payload: true,
+      });
 
     if (!results || results.length === 0) {
       res.json({

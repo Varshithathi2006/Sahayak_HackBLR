@@ -31,3 +31,8 @@ backend/src/temp-config*
 # Testing
 coverage/
 .nyc_output/
+
+# Build
+backend/dist/
+frontend/dist/
+dist/

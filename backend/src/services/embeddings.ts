@@ -48,3 +48,8 @@ export async function getEmbedding(text: string): Promise<number[]> {
     throw new Error("Critical Failure: Unable to generate local embedding.");
   }
 }
+
+/**
+ * Fallback 384-dimensional zero vector for cases where search fails.
+ */
+export const zeroVector = new Array(384).fill(0);

@@ -2,25 +2,34 @@ import type { AgriSubsidyForm, FormFieldKey } from "./types";
 import { create } from "zustand";
 
 interface FormStore {
-  form: Partial<AgriSubsidyForm>;
-  skippedFields: Set<FormFieldKey>;
+  form: Record<string, any>;
+  skippedFields: Set<string>;
   callActive: boolean;
   sessionId: string;
   transcript: TranscriptLine[];
   returningUser: ReturnUserInfo | null;
   error: string | null;
+  rawError: any | null;
   selectedLanguage: string;
+  activeSchema: any | null;
 
+  vapiCallId: string | null;
+  sseStatus: "connecting" | "connected" | "disconnected";
+  
   // Actions
-  updateField: (field: FormFieldKey, value: string | number | boolean) => void;
-  skipFields: (fields: FormFieldKey[]) => void;
+  updateField: (field: string, value: string | number | boolean) => void;
+  skipFields: (fields: string[]) => void;
   setCallActive: (active: boolean) => void;
+  setVapiCallId: (id: string | null) => void;
   setSessionId: (id: string) => void;
+  setSSEStatus: (status: "connecting" | "connected" | "disconnected") => void;
   appendTranscript: (line: TranscriptLine) => void;
   updateLatestTranscript: (line: TranscriptLine) => void;
   setReturningUser: (info: ReturnUserInfo | null) => void;
   setError: (error: string | null) => void;
+  setRawError: (rawError: any | null) => void;
   setLanguage: (lang: string) => void;
+  setSchema: (schema: any) => void;
   resetForm: () => void;
 }
 
@@ -44,25 +53,20 @@ export const useFormStore = create<FormStore>((set) => ({
   skippedFields: new Set(),
   callActive: false,
   sessionId: generateSessionId(),
+  vapiCallId: null,
+  sseStatus: "connecting",
   transcript: [],
   returningUser: null,
   error: null,
+  rawError: null,
   selectedLanguage: "en-IN",
+  activeSchema: null,
 
   updateField: (field, value) =>
     set((state) => {
+      console.log(`💎 Store Updating: [${field}] -> [${value}]`);
       const updatedForm = { ...state.form, [field]: value };
-      const updatedSkipped = new Set(state.skippedFields);
-
-      // Non-linear: skip business fields when hasBusiness = false
-      if (field === "hasBusiness" && value === false) {
-        BUSINESS_FIELDS.forEach((f) => updatedSkipped.add(f));
-      }
-      if (field === "hasBusiness" && value === true) {
-        BUSINESS_FIELDS.forEach((f) => updatedSkipped.delete(f));
-      }
-
-      return { form: updatedForm, skippedFields: updatedSkipped };
+      return { form: updatedForm };
     }),
 
   skipFields: (fields) =>
@@ -73,7 +77,9 @@ export const useFormStore = create<FormStore>((set) => ({
     }),
 
   setCallActive: (active) => set({ callActive: active }),
+  setVapiCallId: (id) => set({ vapiCallId: id }),
   setSessionId: (id) => set({ sessionId: id }),
+  setSSEStatus: (status) => set({ sseStatus: status }),
 
   appendTranscript: (line) =>
     set((state) => ({
@@ -82,18 +88,23 @@ export const useFormStore = create<FormStore>((set) => ({
 
   updateLatestTranscript: (line) =>
     set((state) => {
-      const last = state.transcript[state.transcript.length - 1];
-      if (last && last.id === line.id) {
+      const existingIndex = state.transcript.findLastIndex((t) => t.id === line.id);
+      
+      if (existingIndex !== -1) {
         const updated = [...state.transcript];
-        updated[updated.length - 1] = line;
+        updated[existingIndex] = line;
         return { transcript: updated };
       }
+      
+      // If it doesn't exist, append it
       return { transcript: [...state.transcript.slice(-99), line] };
     }),
 
   setReturningUser: (info) => set({ returningUser: info }),
   setError: (error) => set({ error }),
+  setRawError: (rawError) => set({ rawError }),
   setLanguage: (lang) => set({ selectedLanguage: lang }),
+  setSchema: (schema) => set({ activeSchema: schema }),
 
   resetForm: () =>
     set({
@@ -102,7 +113,10 @@ export const useFormStore = create<FormStore>((set) => ({
       transcript: [],
       returningUser: null,
       error: null,
-      sessionId: generateSessionId(),
+      rawError: null,
+      // NOTE: Do NOT regenerate sessionId here.
+      // The SSE connection is bound to the current sessionId.
+      // Regenerating it would orphan the SSE stream and break live updates.
     }),
 }));
 

@@ -1,165 +1,340 @@
-# Sahayak — Multilingual Voice-to-Form AI Engine
+# 🌾 Sahayak — Voice-to-Form Engine
 
-**Sahayak** (meaning *Helper*) is a professional, industrial-grade voice portal designed to bridge the digital divide for rural populations. Powered by **VaaniPay**, this system converts spoken vernacular into structured English data in real-time, enabling low-literacy users to fill out complex government subsidy and microfinance application forms with ease.
+> **"Sahayak" means "Helper" in Hindi.** A multilingual, AI-powered voice assistant that helps rural citizens fill government enrollment forms — hands-free, in their own language.
 
----
-
-## 🚀 Key Features
-
-- **🌐 Multilingual Regional Voice Support**: Speak in Hindi, Kannada, Tamil, or Telugu. The system detects the language and responds naturally in vernacular.
-- **📊 Real-Time English Registry**: Regardless of the spoken language, data is extracted and recorded in standardized English in the portal registry.
-- **⚡ Lazy Audio Initialization**: Complies with high-security browser policies by deferring audio context creation until explicitly requested by the user.
-- **📡 Live Form Synchronization**: Powered by Server-Sent Events (SSE) and Vapi Webhooks for zero-latency UI updates during a conversation.
-- **🧠 Intelligent Knowledge Access**: Integrated RAG (Retrieval-Augmented Generation) allows users to ask about complex terms (e.g., "What is Kollateral?") mid-form.
+Built for **HackBLR** by Team VaaniPay.
 
 ---
 
-## 🛠 Tech Stack
+## 🏗️ Tech Stack
 
-### Frontend (User Interface)
-- **Framework**: [Next.js 16](https://nextjs.org/) (App Router & Turbopack)
-- **Library**: [React 19](https://react.dev/) with Tailwind CSS 4
-- **State Management**: [Zustand](https://github.com/pmndrs/zustand) for high-performance state management
-- **Voice SDK**: [Vapi Web SDK](https://vapi.ai/) for low-latency voice streaming
-- **Communication**: [EventSource (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) for receiving live updates from the backend.
+### Frontend
+| Technology | Purpose |
+|---|---|
+| **Next.js 16** (App Router) | Core React framework & file-based routing |
+| **Tailwind CSS** | Utility-first styling |
+| **Framer Motion** | Micro-animations for the Mic Orb & form field highlights |
+| **Zustand** | Global state management (form data, session, SSE status) |
+| **`@vapi-ai/web`** | Vapi browser SDK for voice call management |
 
-### Backend (Orchestration & Logic)
-- **Runtime**: [Node.js](https://nodejs.org/) & [Express](https://expressjs.com/) (TypeScript)
-- **Intelligence**: [Groq](https://groq.com/) & [Llama 3](https://ai.meta.com/blog/meta-llama-3/) (70B) for ultra-fast LLM reasoning
-- **Vector Database**: [Qdrant](https://qdrant.tech/) (Cloud/Local) for glossary and user memory retrieval
-- **Embeddings**: [Transformers.js](https://huggingface.co/docs/transformers.js/) (`all-MiniLM-L6-v2`) for local CPU embedding generation
-- **Voice Synthesis**: [ElevenLabs](https://elevenlabs.io/) for human-like empathetic regional speech
+### Backend
+| Technology | Purpose |
+|---|---|
+| **Node.js + Express** | REST API & webhook server |
+| **TypeScript** (`tsx watch`) | Type-safe development with hot-reload |
+| **Mongoose** | MongoDB ODM for Users, Registries & Submissions |
+| **`@xenova/transformers`** | Local embedding generation (no OpenAI needed) |
 
----
-
-## 🏗 System Architecture & Methodology
-
-Sahayak operates as a **tri-synchronous ecosystem**, where the voice AI, the logic server, and the user interface communicate in real-time.
-
-### 1. The Voice Bridge (STT & LLM)
-- **Vernacular Input**: The user speaks in a regional dialect.
-- **Streaming STT**: Vapi streams audio to high-accuracy STT models.
-- **Intent Extraction**: The Llama 3 model (via Groq) is configured with a specific System Prompt defining form schemas and real-time tool calls for data extraction.
-
-### 2. The Logic Backend (Orchestration)
-- **Webhook Processing**: An Express server validates incoming `tool-calls` (e.g., `update_form_field`) from Vapi.
-- **Identity Linkage**: The backend maps the Vapi `callId` to the frontend's `sessionId`, ensuring data is routed to the correct browser instance.
-- **SSE Dispatch**: The backend sends a Server-Sent Event (SSE) to the connected client for zero-latency UI updates.
-
-### 3. The Visual Registry (UI)
-- **State Update**: The React frontend listens to the SSE stream and updates the **Zustand store** upon receiving patches.
-- **Real-Time Render**: Components automatically re-render, showing visual feedback of the active registry being filled.
+### Infrastructure & AI
+| Technology | Purpose |
+|---|---|
+| **Vapi.ai** | Voice AI orchestration (STT → LLM → TTS) |
+| **Groq** (Llama 3 70B) | Ultra-fast LLM backend for conversational logic |
+| **Deepgram** | Speech-to-Text (multilingual transcription) |
+| **ElevenLabs** | Text-to-Speech (natural-sounding voice output) |
+| **MongoDB** | Primary database for users, form schemas, submissions |
+| **Qdrant** (Docker) | Vector database for RAG glossary & knowledge base |
+| **ngrok** | Tunnels `localhost:4000` to a public HTTPS URL for Vapi webhooks |
+| **Server-Sent Events (SSE)** | Real-time one-way push from Backend → Browser |
 
 ---
 
-## 📊 Data Flow Diagram
+## 🌊 Data Flow — End to End
 
-```mermaid
-sequenceDiagram
-    participant U as User (Speech)
-    participant F as Frontend (Next.js)
-    participant V as Vapi (Voice Bridge)
-    participant L as LLM (Llama 3 @ Groq)
-    participant B as Backend (Express)
-    participant Q as Qdrant (Vector DB)
-
-    U->>F: "I grow wheat in 5 acres"
-    F->>V: Audio Stream
-    V->>L: Transcription + Context
-    L->>L: Reason: Field=crop, Value=Wheat
-    L->>V: Tool Call: update_form_field("crop", "Wheat")
-    V->>B: POST /webhook/vapi (Tool Call Payload)
-    B->>B: Resolve sessionId for callId
-    B->>F: SSE: { type: 'form_update', field: 'crop', value: 'Wheat' }
-    F->>F: Zustand State Update
-    F->>U: Visual Feedback (Input filled with "Wheat")
-    
-    Note over U,Q: RAG Flow (Optional)
-    U->>F: "What is KCC loan?"
-    V->>L: Tool Call: ask_knowledge_base("KCC loan")
-    L->>B: Tool Request
-    B->>Q: Vector Search (Semantic Lookup)
-    Q-->>B: Policy Document Snippet
-    B-->>L: Context Snippet
-    L-->>V: Synthesized Answer
-    V-->>U: "KCC is Kisan Credit Card..." (Voice Response)
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          USER'S BROWSER                                  │
+│                                                                          │
+│   1. User opens /form/[schemaId]                                         │
+│   2. Frontend fetches the form schema from backend (MongoDB)             │
+│   3. Frontend establishes SSE stream → /api/form-events?sessionId=xxx   │
+│   4. Frontend registers sessionId → /api/register-session               │
+│                                                                          │
+│   5. User clicks "Start Communication"                                   │
+│   6. Frontend calls /api/sync-webhook → backend patches the Vapi        │
+│      assistant with the correct webhook URL + form fields               │
+│   7. Frontend calls vapi.start(assistantId, { metadata: {sessionId} })  │
+│   8. Vapi returns a callId; frontend calls /api/link-call to bind it     │
+│                                                                          │
+└───────────────┬──────────────────────────────────────────────┬──────────┘
+                │  WebRTC Audio                                │ SSE Stream
+                ▼                                              │ (EventSource)
+┌───────────────────────────────┐                             │
+│         VAPI.AI CLOUD         │                             │
+│                               │                             │
+│  ┌────────┐  ┌─────────────┐  │                             │
+│  │Deepgram│→ │  Groq LLaMA │  │                             │
+│  │  STT   │  │   3 (LLM)   │  │                             │
+│  └────────┘  └──────┬──────┘  │                             │
+│                     │         │                             │
+│         Detects tool call     │                             │
+│         update_form_field     │                             │
+│                     │         │                             │
+│  ┌──────────────────▼──────┐  │                             │
+│  │      ElevenLabs TTS     │  │    POST /api/webhook/vapi   │
+│  └─────────────────────────┘  ├────────────────────────────►│
+│                               │   (via ngrok HTTPS tunnel)  │
+└───────────────────────────────┘                             │
+                                                              │
+                                            ┌─────────────────▼──────────┐
+                                            │       BACKEND (Express)     │
+                                            │                             │
+                                            │  1. Receives webhook        │
+                                            │  2. Parses type="tool-calls"│
+                                            │  3. Extracts {field, value} │
+                                            │  4. Looks up sessionId from │
+                                            │     callIdToSessionId map   │
+                                            │  5. Calls                   │
+                                            │     handleFormFieldUpdate() │
+                                            │  6. Writes SSE event to the │
+                                            │     matching Response stream │
+                                            │                             │
+                                            └─────────────────┬──────────┘
+                                                              │
+                                                              │ SSE data event
+                                                              ▼
+                                            ┌─────────────────────────────┐
+                                            │       BROWSER (SSE Hook)    │
+                                            │                             │
+                                            │  useSSEFormUpdates.ts       │
+                                            │  → Receives {field, value}  │
+                                            │  → Calls store.updateField()│
+                                            │  → Zustand triggers re-render│
+                                            │  → Framer Motion animates   │
+                                            │     the field highlight ✨  │
+                                            └─────────────────────────────┘
 ```
 
 ---
 
-## 🧠 Implementation Deep-Dive
+## 📁 Project Structure
 
-### Identity Linkage (The "Session Bridge")
-To ensure data from Call A only updates Browser Tab A, Sahayak:
-- Injects a `sessionId` into Vapi `callMetadata` during initialization.
-- Maintains a `callIdToSessionId` map in the backend to bridge webhook triggers.
-- Uses a persistent registry of SSE connections mapped by `sessionId`.
-
-### Lazy Audio Initialization
-To comply with the **Autoplay Policy** (common in Chrome/Safari), Sahayak uses a state-driven "Start Session" button. The `AudioContext` is only created upon user gesture, preventing `NotAllowedError`.
-
-### Multi-Regional RAG
-The `ask_knowledge_base` tool allows the AI to stay accurate without massive context windows:
-- **Documents**: FAQs about subsidies, dictionary of regional agricultural terms.
-- **Flow**: User Question → Vector Search → Context Injection → LLM Response.
-
-### Form Logic & Non-Linear Flow
-The system supports **Skipping Logic**. For example, if `hasBusiness` is `false`, the backend notifies the frontend to hide unrelated business fields through the SSE stream automatically.
+```
+hackblr/
+├── backend/
+│   ├── src/
+│   │   ├── index.ts            # Express app entry, /api/sync-webhook
+│   │   ├── routes/
+│   │   │   ├── vapi.ts         # SSE stream, webhook handler, session registry
+│   │   │   ├── auth.ts         # User login/register (JWT)
+│   │   │   ├── bank.ts         # Form schema (registry) CRUD
+│   │   │   ├── client.ts       # Form submission endpoints
+│   │   │   ├── knowledge.ts    # RAG knowledge base query
+│   │   │   └── memory.ts       # Per-user conversation memory (Qdrant)
+│   │   ├── models/
+│   │   │   ├── User.ts         # MongoDB user schema
+│   │   │   ├── FormSchema.ts   # Registry (form template) schema
+│   │   │   └── Submission.ts   # Completed form submission schema
+│   │   └── services/
+│   │       ├── qdrant.ts       # Qdrant client & collection init
+│   │       └── embeddings.ts   # Local embedding generation
+│   ├── .env                    # Backend environment variables
+│   └── package.json
+│
+├── frontend/
+│   ├── app/
+│   │   ├── page.tsx            # Landing page
+│   │   ├── auth/               # Login & Signup pages
+│   │   ├── client/             # Registry selection dashboard
+│   │   └── form/[schemaId]/    # Dynamic form enrollment page
+│   ├── components/             # UI components (MicOrb, RegistryMonitor, etc.)
+│   ├── hooks/
+│   │   ├── useVapiCall.ts      # Starts/stops Vapi voice calls
+│   │   └── useSSEFormUpdates.ts # Listens to backend SSE stream
+│   ├── lib/
+│   │   ├── formStore.ts        # Zustand global state
+│   │   ├── authStore.ts        # Zustand auth state
+│   │   └── vapiClient.ts       # Vapi SDK singleton
+│   └── .env.local              # Frontend environment variables
+│
+├── docker-compose.yml          # Qdrant vector DB container
+└── vapi-config/                # Vapi assistant config exports
+```
 
 ---
 
-## 💰 Free-Tier Optimization (Sovereign AI)
-
-Unlike many voice portals, Sahayak is optimized to run on **zero-cost infrastructure**:
-- **Local Embeddings**: Uses **Transformers.js** entirely on your local CPU. No OpenAI credits required for RAG.
-- **Groq LLM**: Configured to use the Groq Llama 3 free tier for ultra-low latency.
-- **Docker-Ready**: Integrated `docker-compose.yml` for instant persistent vector memory with Qdrant.
-
----
-
-## 📦 Installation & Setup
+## 🚀 Local Development Setup
 
 ### Prerequisites
-- Node.js (v20+)
-- Vapi account ([vapi.ai](https://vapi.ai))
-- Groq account ([console.groq.com](https://console.groq.com))
-- Docker (optional, for local Qdrant)
+- Node.js 18+
+- Docker Desktop (for Qdrant)
+- Scoop (Windows) or Homebrew (macOS) package manager
+- A Vapi.ai account & Groq API key
 
-### 1. Repository Setup
+### 1. Clone & Install Dependencies
+
 ```bash
-git clone https://github.com/siri-sanjana/hackblr.git
+git clone <repo-url>
 cd hackblr
+
+# Install backend dependencies
+cd backend && npm install
+
+# Install frontend dependencies
+cd ../frontend && npm install
 ```
 
-### 2. Backend Startup
-```bash
-cd backend
-npm install
-# Configure .env with your VAPI_API_KEY and GROQ_API_KEY
-npm run seed  # Seed local glossary vectors
-npm run dev
+### 2. Configure Environment Variables
+
+**`backend/.env`**
+```env
+PORT=4000
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=https://<your-ngrok-url>   # Updated on each ngrok start
+
+VAPI_API_KEY=your_vapi_private_key
+VAPI_PUBLIC_KEY=your_vapi_public_key
+VAPI_ASSISTANT_ID=your_assistant_id
+
+GROQ_API_KEY=your_groq_api_key
+
+MONGO_URI=mongodb://127.0.0.1:27017/sahayak
+JWT_SECRET=your_jwt_secret
+
+QDRANT_URL=http://localhost:6333
+QDRANT_API_KEY=                        # Leave blank for local Docker
 ```
 
-### 3. Frontend Startup
-```bash
-cd frontend
-npm install
-# Configure .env.local with NEXT_PUBLIC_VAPI_PUBLIC_KEY
-npm run dev
+**`frontend/.env.local`**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_VAPI_PUBLIC_KEY=your_vapi_public_key
+NEXT_PUBLIC_VAPI_ASSISTANT_ID=your_assistant_id
 ```
 
-### 4. Public Tunneling (Webhooks)
-For external voice communication to reach your local backend:
+### 3. Start Infrastructure
+
 ```bash
+# Start Qdrant vector database
+docker-compose up -d
+
+# Install & configure ngrok (first time only)
+scoop install ngrok
+ngrok config add-authtoken <your_ngrok_token>
+```
+
+### 4. Start the Tunnel
+
+```bash
+# In a dedicated terminal — keep this running
 ngrok http 4000
 ```
-Update your Vapi agent's **Server URL** with the resulting ngrok address.
+
+Copy the **Forwarding URL** (e.g. `https://abc123.ngrok-free.app`) and update `BACKEND_URL` in `backend/.env`.
+
+### 5. Seed the Database
+
+```bash
+cd backend
+npm run seed:registries   # Seeds PM-Kisan, KCC, PDS form schemas into MongoDB
+npm run seed:qdrant       # Seeds glossary into Qdrant
+```
+
+### 6. Start the Servers
+
+```bash
+# Terminal 1 — Backend
+cd backend && npm run dev
+
+# Terminal 2 — Frontend
+cd frontend && npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## 🎯 How It Works (User Journey)
 
-## 🤝 Contributing
-This project is part of a social impact initiative to improve digital accessibility in rural India. Contributions are welcome.
+1. **Register / Login** at `/auth/signup`
+2. **Select a Government Scheme** from the dashboard (PM-Kisan, KCC, PDS, etc.)
+3. **Click "Initiate Communication"** on the form page
+4. **Speak naturally** — the AI conducts a bilingual interview:
+   - *"What is your name?"*
+   - *"How many family members do you have?"*
+   - *"What is your annual income?"*
+5. **Watch the form fill itself** in real-time as the AI extracts and validates each field
+6. **Review & Submit** — the form is saved to MongoDB as a submission
+
+---
+
+## 🔑 Key API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/register` | Create new user account |
+| `POST` | `/api/auth/login` | Authenticate, returns JWT |
+| `GET`  | `/api/bank/registries` | List all available form schemas |
+| `GET`  | `/api/bank/registry/:id` | Get a specific form schema |
+| `POST` | `/api/sync-webhook` | Patches Vapi assistant with webhook URL + fields |
+| `POST` | `/api/register-session` | Registers the browser's SSE session ID |
+| `POST` | `/api/link-call` | Binds a Vapi Call ID to a browser Session ID |
+| `GET`  | `/api/form-events` | SSE stream — pushes `form_update` events to browser |
+| `POST` | `/api/webhook/vapi` | Receives tool calls from Vapi AI (the bridge) |
+| `POST` | `/api/client/submit` | Saves a completed form submission |
+
+---
+
+## 🌐 Supported Languages
+
+The Sahayak assistant supports the following languages via Deepgram's multilingual transcription:
+- 🇮🇳 **Hindi** (`hi-IN`)
+- 🇮🇳 **Kannada** (`kn-IN`)
+- 🇮🇳 **Telugu** (`te-IN`)
+- 🇮🇳 **Tamil** (`ta-IN`)
+- 🇬🇧 **English** (`en-IN`)
+
+---
+
+## 🧠 AI Architecture
+
+```
+User Speech → Deepgram (STT) → Groq Llama3-70B (LLM) → ElevenLabs (TTS) → User Ears
+                                        │
+                                 Tool Call Extraction
+                                        │
+                          update_form_field(field, value)
+                                        │
+                              POST /api/webhook/vapi
+                                        │
+                              SSE push to browser
+                                        │
+                                 Form field fills ✨
+```
+
+The LLM is instructed to **always call `update_form_field` immediately** after extracting any piece of information. This ensures zero-delay live form filling.
+
+---
+
+## 📦 Docker Services
+
+```yaml
+# docker-compose.yml
+services:
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - "6333:6333"     # REST API
+      - "6334:6334"     # gRPC
+    volumes:
+      - qdrant_storage:/qdrant/storage
+```
+
+---
+
+## 🛠️ Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Form fields not filling | Ensure ngrok is running and `BACKEND_URL` in `backend/.env` is updated |
+| `502 Bad Gateway` in Vapi logs | Backend crashed — check terminal for errors |
+| SSE shows "disconnected" | Restart frontend; check backend is on port 4000 |
+| MongoDB connection failed | Ensure `mongod` service is running on `127.0.0.1:27017` |
+| Qdrant not available | Run `docker-compose up -d` |
+| `sharp` module error | Run `npm install --include=optional sharp` in backend |
+
+---
 
 ## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+MIT © 2026 Team VaaniPay — HackBLR
