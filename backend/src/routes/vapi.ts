@@ -141,7 +141,7 @@ router.post("/webhook/vapi", async (req: Request, res: Response) => {
                 if (value.toLowerCase() === "true") normalizedValue = true;
                 if (value.toLowerCase() === "false") normalizedValue = false;
               }
-              toolResult = handleFormFieldUpdate(sessionId, field, normalizedValue);
+              toolResult = await handleFormFieldUpdate(sessionId, field, normalizedValue);
             }
           } else if (functionName === "ask_knowledge_base") {
             const { query } = rawParameters;
@@ -198,29 +198,58 @@ router.post("/webhook/vapi", async (req: Request, res: Response) => {
 /**
  * POST /api/test-link
  */
-router.post("/test-link", (req: Request, res: Response) => {
+router.post("/test-link", async (req: Request, res: Response) => {
   const { sessionId } = req.body;
   if (!sessionId || !sseClients.has(sessionId)) {
     return res.status(404).json({ error: "No active session found" });
   }
-  handleFormFieldUpdate(sessionId, "fullName", "DIAGNOSTIC_LINK_OK");
+  await handleFormFieldUpdate(sessionId, "fullName", "DIAGNOSTIC_LINK_OK");
   res.json({ success: true });
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function handleFormFieldUpdate(
+/**
+ * GET /api/form-updates/:sessionId
+ * Fallback polling route for environments where SSE is unstable (like Vercel).
+ */
+router.get("/form-updates/:sessionId", async (req: Request, res: Response) => {
+  const { sessionId } = req.params;
+  const { lastSeen } = req.query; // Optional timestamp to only get new ones
+  
+  try {
+    const { FormUpdate } = await import("../models/FormUpdate.js");
+    const query: any = { sessionId };
+    if (lastSeen) query.createdAt = { $gt: new Date(lastSeen as string) };
+    
+    const updates = await FormUpdate.find(query).sort({ createdAt: 1 });
+    res.json({ updates });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch updates" });
+  }
+});
+
+async function handleFormFieldUpdate(
   sessionId: string,
   field: string,
   value: string | number | boolean
-): { success: boolean } {
+): Promise<{ success: boolean }> {
+  // 1. Dispatch to active SSE clients (if any in this instance)
   const client = sseClients.get(sessionId);
   if (client) {
-    console.log(`✅ Dispatching update for ${field} to session ${sessionId}: ${value}`);
+    console.log(`✅ Dispatching SSE update for ${field} to session ${sessionId}: ${value}`);
     sendSSE(client, { type: "form_update", field, value, sessionId });
-  } else {
-    console.warn(`❌ SSE DISPATCH FAIL: No active client for session ${sessionId}.`);
   }
+
+  // 2. Persist to DB for cross-instance polling (Critical for Vercel/Serverless)
+  try {
+    const { FormUpdate } = await import("../models/FormUpdate.js");
+    await new FormUpdate({ sessionId, field, value }).save();
+    console.log(`💾 Persisted update to DB for polling: ${field}`);
+  } catch (err) {
+    console.error("❌ Failed to persist form update:", err);
+  }
+
   return { success: true };
 }
 

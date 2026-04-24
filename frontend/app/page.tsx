@@ -17,7 +17,6 @@ import {
   Code2,
   Wind,
 } from "lucide-react";
-import Hls from "hls.js";
 
 /* ─── Helpers ─── */
 
@@ -112,14 +111,18 @@ export default function HomePage() {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(HLS_URL);
-      hls.attachMedia(video);
-      return () => hls.destroy();
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = HLS_URL;
-    }
+
+    // Use dynamic import for Hls to prevent build-time SSR errors
+    import("hls.js").then((res) => {
+      const Hls = res.default;
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(HLS_URL);
+        hls.attachMedia(video);
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = HLS_URL;
+      }
+    });
   }, []);
 
   return (

@@ -1,10 +1,8 @@
-import { pipeline } from "@xenova/transformers";
 import { getCachedEmbedding, setCachedEmbedding } from "./cache.js";
 
 /**
  * Local Embedding Engine (Transformers.js)
  * Uses Xenova/all-MiniLM-L6-v2 (384 dimensions)
- * 100% Free - Runs on the user's CPU
  */
 
 let extractor: any = null;
@@ -12,6 +10,15 @@ let extractor: any = null;
 async function getExtractor() {
   if (!extractor) {
     console.log("📥 Loading local embedding model (Xenova/all-MiniLM-L6-v2)...");
+    
+    // VERCEL CRITICAL FIX: Use eval('import') to bypass transpilers that 
+    // convert dynamic imports back to require(), which causes the ERR_REQUIRE_ESM crash.
+    const { pipeline, env } = await (eval('import("@xenova/transformers")') as Promise<any>);
+    
+    // Configure cache for /tmp
+    env.cacheDir = "/tmp/.transformers_cache";
+    env.allowRemoteModels = true;
+    
     extractor = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
     console.log("✅ Local model loaded.");
   }

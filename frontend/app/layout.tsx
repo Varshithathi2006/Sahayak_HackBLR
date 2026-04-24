@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter, DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,20 +8,37 @@ const inter = Inter({
   display: "swap",
 });
 
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  style: ["italic"],
+  variable: "--font-playfair",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Sahayak — Voice-to-Form Engine",
+  title: "NeuroNova — Voice-to-Form Engine",
   description:
     "An AI-powered voice assistant that helps low-literacy farmers and rural families fill out complex agricultural subsidy and microfinance forms using natural spoken conversation.",
   keywords: ["voice form", "agri subsidy", "microfinance", "accessibility", "Vapi AI"],
   openGraph: {
-    title: "Sahayak — Voice-to-Form Engine",
-    description: "Speak naturally. Let Sahayak fill the form for you.",
+    title: "NeuroNova — Voice-to-Form Engine",
+    description: "Speak naturally. Let NeuroNova fill the form for you.",
     type: "website",
   },
-  other: {
-    "preconnect-1": "https://fonts.googleapis.com",
-    "preconnect-2": "https://fonts.gstatic.com",
-  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#070612",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -30,15 +47,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <head>
-        <link
-          key="google-fonts"
-          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:ital,wght@1,400;1,500&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="min-h-full flex flex-col" style={{ background: "#070612" }}>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${dmSans.variable} ${playfair.variable} min-h-full flex flex-col antialiased`}
+        style={{ background: "#070612" }}
+      >
         {children}
       </body>
     </html>

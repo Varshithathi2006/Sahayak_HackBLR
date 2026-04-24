@@ -43,84 +43,77 @@ export function useSSEFormUpdates() {
     function connect() {
       if (!mountedRef.current) return;
 
-      console.log("-----------------------------------------");
-      console.log(`📡 SSE: Connecting to ${API_URL}`);
-      console.log(`🆔 Session ID: ${sessionId}`);
-      console.log("-----------------------------------------");
-
+      console.log("📡 SSE: Connecting to", API_URL);
       setSSEStatus("connecting");
 
-      // Use absolute URL to avoid any relative path confusion
       const url = `${API_URL}/api/form-events?sessionId=${sessionId}`;
-      
-      // EventSource with explicit credentials handling
       const es = new EventSource(url, { withCredentials: true });
       eventSourceRef.current = es;
 
-      es.onopen = (e) => {
+      es.onopen = () => {
         if (!mountedRef.current) return;
-        console.log("✅ SSE Connection Established for:", sessionId);
+        console.log("✅ SSE Connected");
         setSSEStatus("connected");
       };
 
-      // Listen for all messages
       es.addEventListener("message", (event) => {
-        if (!mountedRef.current) return;
-        
-        // Handle heartbeats/warmups (non-JSON data)
-        if (event.data.startsWith(":")) {
-          return;
-        }
-
+        if (!mountedRef.current || event.data.startsWith(":")) return;
         try {
-          const data: SSEEvent = JSON.parse(event.data);
-          console.log("📥 SSE DATA RECEIVED:", data);
-
-          if (data.type === "form_update" && data.field && data.value !== undefined) {
-             console.log(`💎 STORE UPDATE TRIGGER: [${data.field}] -> [${data.value}]`);
-             // Access the updateField action directly from the store's state
-             const store = useFormStore.getState();
-             store.updateField(data.field, data.value);
-             
-             // Extra safety: log the state after update (on next tick)
-             setTimeout(() => {
-               const newState = useFormStore.getState();
-               console.log("🔍 NEW FORM STATE:", newState.form);
-             }, 50);
-          } else if (data.type === "status") {
-             console.log("ℹ️ SYSTEM STATUS:", data.message);
+          const data = JSON.parse(event.data);
+          if (data.type === "form_update" && data.field) {
+            useFormStore.getState().updateField(data.field, data.value);
           }
         } catch (err) {
-          console.warn("❌ SSE Parse Error. Raw data:", event.data, err);
+          console.warn("❌ SSE Parse Error:", err);
         }
       });
 
-      es.onerror = (err) => {
+      es.onerror = () => {
         if (!mountedRef.current) return;
-        console.warn("⚠️ SSE Stream Error - Connection may be lost. Retrying in 3s...", err);
+        console.warn("⚠️ SSE Disconnected. Switching to Polling Fallback...");
         setSSEStatus("disconnected");
         es.close();
         eventSourceRef.current = null;
 
-        retryTimeoutRef.current = setTimeout(() => {
-          if (mountedRef.current) connect();
-        }, 3000);
+        // Start Polling Fallback
+        startPolling();
       };
+    }
+
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    let lastPollTime = new Date().toISOString();
+
+    function startPolling() {
+      if (pollInterval || !mountedRef.current) return;
+      
+      console.log("⏱️ POLLING STARTED for session:", sessionId);
+      
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_URL}/api/form-updates/${sessionId}?lastSeen=${lastPollTime}`);
+          const { updates } = await res.json();
+          
+          if (updates && updates.length > 0) {
+            console.log(`📥 Polled ${updates.length} new updates`);
+            const store = useFormStore.getState();
+            updates.forEach((u: any) => {
+              store.updateField(u.field, u.value);
+              lastPollTime = u.createdAt;
+            });
+          }
+        } catch (err) {
+          console.error("❌ Polling Error:", err);
+        }
+      }, 2000); // Poll every 2s
     }
 
     connect();
 
     return () => {
-      console.log("🛑 SSE: Hook unmounting, closing connection");
       mountedRef.current = false;
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
-      }
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
-      }
+      if (eventSourceRef.current) eventSourceRef.current.close();
+      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+      if (pollInterval) clearInterval(pollInterval);
     };
   }, [sessionId, setSSEStatus]);
 }
