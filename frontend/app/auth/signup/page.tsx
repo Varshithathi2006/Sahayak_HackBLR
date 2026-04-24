@@ -206,7 +206,7 @@ export default function SignupPage() {
         </div>
 
         <p className="text-center mt-8 text-xs text-white/20">
-          © 2026 Team VaaniPay · Sahayak
+          © 2026 Team NeuroNova · Sahayak
         </p>
       </motion.div>
     </div>

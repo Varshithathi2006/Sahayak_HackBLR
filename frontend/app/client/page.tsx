@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
@@ -245,7 +247,7 @@ export default function ClientDashboard() {
         className="py-5 px-6 lg:px-12 flex items-center justify-between"
         style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
       >
-        <p className="text-white/25 text-xs">© 2026 Team VaaniPay · Sahayak Portal</p>
+        <p className="text-white/25 text-xs">© 2026 Team NeuroNova · Sahayak Portal</p>
         <div className="flex items-center gap-4 text-white/20 text-xs">
           <span>Vapi · Deepgram · ElevenLabs</span>
         </div>

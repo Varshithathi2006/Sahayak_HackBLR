@@ -5,8 +5,8 @@ dotenv.config();
 
 const KNOWLEDGE_DOCS = [
   {
-    title: "About Sahayak & VaaniPay",
-    content: "Sahayak is an AI CASeworker designed to help rural families and farmers in India access financial services. It works alongside VaaniPay, a voice-based banking platform, to simplify complex government forms and microfinance applications through natural conversation in local languages.",
+    title: "About Sahayak & NeuroNova",
+    content: "Sahayak is an AI CASeworker designed to help rural families and farmers in India access financial services. It works alongside NeuroNova, a voice-based banking platform, to simplify complex government forms and microfinance applications through natural conversation in local languages.",
   },
   {
     title: "Microfinance Basics",
@@ -30,7 +30,7 @@ const KNOWLEDGE_DOCS = [
   },
   {
     title: "Digital Security Tips",
-    content: "Never share your Bank OTP, PIN, or Aadhaar OTP with anyone over the phone. VaaniPay and Sahayak will never ask for your secret PIN. Always verify that you are speaking to the official assistant before sharing personal details.",
+    content: "Never share your Bank OTP, PIN, or Aadhaar OTP with anyone over the phone. NeuroNova and Sahayak will never ask for your secret PIN. Always verify that you are speaking to the official assistant before sharing personal details.",
   },
   {
     title: "Loan Repayment & EMI",

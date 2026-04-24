@@ -18,6 +18,10 @@ export const metadata: Metadata = {
     description: "Speak naturally. Let Sahayak fill the form for you.",
     type: "website",
   },
+  other: {
+    "preconnect-1": "https://fonts.googleapis.com",
+    "preconnect-2": "https://fonts.gstatic.com",
+  },
 };
 
 export default function RootLayout({
@@ -28,9 +32,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
+          key="google-fonts"
           href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Playfair+Display:ital,wght@1,400;1,500&display=swap"
           rel="stylesheet"
         />

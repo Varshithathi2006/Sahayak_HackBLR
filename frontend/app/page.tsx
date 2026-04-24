@@ -279,7 +279,7 @@ export default function HomePage() {
               AI listens, understands, and populates a government scheme form in
               real time — no typing, no navigation, no barriers. Built for{" "}
               <strong className="text-white/90">HackBLR</strong> by{" "}
-              <strong className="text-white/90">Team VaaniPay</strong>, Sahayak
+              <strong className="text-white/90">Team NeuroNova</strong>, Sahayak
               bridges the gap between complex bureaucratic paperwork and citizens
               who need it most.
             </p>
@@ -355,7 +355,7 @@ export default function HomePage() {
               Meet the Builders
             </h2>
             <p className="text-white/50 text-base">
-              Built with ❤️ at HackBLR by Team VaaniPay
+              Built with ❤️ at HackBLR by Team NeuroNova
             </p>
           </motion.div>
 
@@ -405,7 +405,7 @@ export default function HomePage() {
       <footer className="border-t border-white/10 py-8">
         <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-white/40 text-sm">
-            © 2026 Team VaaniPay · Built at HackBLR
+            © 2026 Team NeuroNova · Built at HackBLR
           </p>
           <div className="flex items-center gap-6">
             <Link

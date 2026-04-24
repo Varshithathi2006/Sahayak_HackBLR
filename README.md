@@ -2,7 +2,7 @@
 
 > **"Sahayak" means "Helper" in Hindi.** A multilingual, AI-powered voice assistant that helps rural citizens fill government enrollment forms — hands-free, in their own language.
 
-Built for **HackBLR** by Team VaaniPay.
+Built for **HackBLR** by Team NeuroNova.
 
 ---
 
@@ -337,4 +337,4 @@ services:
 
 ## 📄 License
 
-MIT © 2026 Team VaaniPay — HackBLR
+MIT © 2026 Team NeuroNova — HackBLR
