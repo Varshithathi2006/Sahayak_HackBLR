@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 import {
   ShieldCheck,
   Search,
@@ -26,18 +27,12 @@ export default function ClientDashboard() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    if (!user || user.role !== "client") {
-      router.push("/auth/login");
-    } else {
-      fetchSchemas();
-    }
-  }, [user]);
+    fetchSchemas();
+  }, []);
 
   const fetchSchemas = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/client/schemas`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch("/api/client/schemas");
       const data = await res.json();
       setSchemas(data);
     } catch (err) {

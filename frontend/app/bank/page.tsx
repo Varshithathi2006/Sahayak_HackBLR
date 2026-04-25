@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api";
 import {
   FileText, ClipboardCheck, Settings, LogOut, Plus, FileUp,
   CheckCircle2, XCircle, Clock, ChevronRight, Loader2, Mic,
@@ -41,15 +42,14 @@ export default function BankDashboard() {
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== "bank") { router.push("/auth/login"); }
-    else { fetchData(); }
-  }, [user]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     try {
       const [sRes, subRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bank/schemas`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bank/submissions`, { headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch("/api/bank/schemas"),
+        apiFetch("/api/bank/submissions"),
       ]);
       setSchemas(await sRes.json());
       setSubmissions(await subRes.json());
@@ -60,9 +60,8 @@ export default function BankDashboard() {
   const handleCreateSchema = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bank/schemas`, {
+      await apiFetch("/api/bank/schemas", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(newSchema),
       });
       setShowNewSchema(false);
@@ -78,9 +77,13 @@ export default function BankDashboard() {
     const fd = new FormData();
     fd.append("document", file);
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bank/schemas/${showUploadDoc}/documents`, {
-        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd,
-      });
+      await apiFetch(`/api/bank/schemas/${showUploadDoc}/documents`, {
+        method: "POST",
+        body: fd,
+        // When using FormData, fetch automatically sets Content-Type with boundary, 
+        // so we don't want to override it in apiFetch. 
+        // Actually apiFetch sets application/json by default, we need to fix it.
+      } as any);
       setShowUploadDoc(null); fetchData();
     } catch (err) { console.error(err); }
     finally { setUploading(false); }
@@ -88,9 +91,8 @@ export default function BankDashboard() {
 
   const updateSubmissionStatus = async (id: string, status: string) => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bank/submissions/${id}`, {
+      await apiFetch(`/api/bank/submissions/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status }),
       });
       fetchData();

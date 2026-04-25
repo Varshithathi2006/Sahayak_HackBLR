@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, DM_Sans, Playfair_Display } from "next/font/google";
+import AuthProvider from "@/components/AuthProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -52,7 +53,9 @@ export default function RootLayout({
         className={`${inter.variable} ${dmSans.variable} ${playfair.variable} min-h-full flex flex-col antialiased`}
         style={{ background: "#070612" }}
       >
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

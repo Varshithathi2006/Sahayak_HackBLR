@@ -2,9 +2,27 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User.js";
+import { authenticate, AuthRequest } from "../middleware/auth.js";
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_for_dev_only";
+
+/**
+ * GET /api/auth/me
+ * Returns current user data based on token
+ */
+router.get("/me", authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await User.findById(req.user?.id).select("-password");
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.json({ user });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * POST /api/auth/signup
@@ -15,6 +33,17 @@ router.post("/signup", async (req: Request, res: Response) => {
 
     if (!email || !password || !name) {
       res.status(400).json({ error: "Missing required fields" });
+      return;
+    }
+
+    if (password.length < 6) {
+      res.status(400).json({ error: "Password must be at least 6 characters" });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      res.status(400).json({ error: "Invalid email format" });
       return;
     }
 
