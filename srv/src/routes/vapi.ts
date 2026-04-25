@@ -64,12 +64,12 @@ router.get("/form-events", (req: Request, res: Response) => {
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
 
-  // Keep-alive heartbeat (every 15s)
+  // Keep-alive heartbeat (every 5s)
   const heartbeat = setInterval(() => {
-    res.write(": heartbeat\n\n");
-  }, 15000);
+    res.write(`data: ${JSON.stringify({ type: "ping" })}\n\n`);
+  }, 5000);
 
-  // Connection Warmup - sending some bypass data to trigger browser processing
+  // Connection Warmup
   res.write(": warmup\n\n");
   res.flushHeaders();
 
@@ -100,18 +100,18 @@ router.post("/webhook/vapi", async (req: Request, res: Response) => {
     const metadata = message?.metadata || body?.metadata || body?.message?.metadata || message?.call?.metadata || body?.call?.metadata;
     
     console.log(`📡 Vapi Event: [${type}] - Call: ${callId}`);
-    if (type === "end-of-call-report") console.log(`🛑 Call Ended Reason: ${body.endedReason || body.message?.endedReason || "unknown"}`);
-
-    if (body.transcript) console.log(`📝 Transcript: ${body.transcript}`);
-    if (body.toolCalls) console.log(`🛠️ Tool Calls: ${JSON.stringify(body.toolCalls)}`);
-    if (message?.transcript) console.log(`📝 Msg Transcript: ${message.transcript}`);
-    if (message?.toolCalls) console.log(`🛠️ Msg Tool Calls: ${JSON.stringify(message.toolCalls)}`);
+    if (metadata) console.log(`🔍 Metadata: ${JSON.stringify(metadata)}`);
 
     let sessionId = metadata?.sessionId || lastRegisteredSession;
     if (callId && !sessionId) {
       sessionId = callIdToSessionId.get(callId);
+      if (sessionId) console.log(`🔗 Found session ID from call mapping: ${sessionId}`);
     }
-    sessionId = sessionId || "default";
+    
+    if (!sessionId) {
+      console.warn(`⚠️ No sessionId found for call ${callId}. Using fallback: ${lastRegisteredSession || 'default'}`);
+      sessionId = lastRegisteredSession || "default";
+    }
 
     // ─── Phase 2: Tool Calls ──────────────────────────────────────────────────
     if (type === "function-call" || type === "tool-calls") {

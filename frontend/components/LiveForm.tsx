@@ -22,7 +22,7 @@ export default function LiveForm() {
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-3">
-        <div className="flex items-center gap-2 border-l-2 border-blue-600 pl-3">
+        <div className="flex items-center gap-2 border-l-2 border-violet-500 pl-3">
           <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
             Registry Section: {activeSchema.name}
           </h3>
@@ -52,13 +52,13 @@ export default function LiveForm() {
                 key={field.key}
                 className={`
                   flex items-center gap-4 px-5 py-3 transition-colors duration-300
-                  ${isFilled ? "bg-blue-600/[0.03]" : ""}
+                  ${isFilled ? "bg-violet-500/[0.03]" : ""}
                 `}
               >
                 {/* Status Ledger Icon */}
                 <div className="shrink-0 flex items-center justify-center w-8">
                   {isFilled ? (
-                    <Hash className="w-3.5 h-3.5 text-blue-500" strokeWidth={3} />
+                    <Hash className="w-3.5 h-3.5 text-violet-400" strokeWidth={3} />
                   ) : isSkipped ? (
                     <Ban className="w-3.5 h-3.5 text-slate-700" />
                   ) : (
@@ -91,8 +91,8 @@ export default function LiveForm() {
                 {/* Verification Mark */}
                 {isFilled && (
                   <div className="shrink-0 flex items-center gap-1 opacity-50">
-                    <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Verified</span>
-                    <ChevronRight className="w-3 h-3 text-blue-500" />
+                    <span className="text-[9px] font-black text-violet-400 uppercase tracking-widest">Verified</span>
+                    <ChevronRight className="w-3 h-3 text-violet-400" />
                   </div>
                 )}
               </div>

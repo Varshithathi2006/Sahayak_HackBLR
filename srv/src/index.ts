@@ -89,7 +89,7 @@ app.get("/health", (_req, res) => {
 
 // ─── Auto-Sync Vapi Webhook URL ───────────────────────────────────────────────
 app.post("/api/sync-webhook", async (_req, res) => {
-  const { assistantId, fields, name, description } = _req.body;
+  const { assistantId, fields, name, description, language } = _req.body;
   const vapiKey = process.env.VAPI_API_KEY;
   const backendUrl = process.env.BACKEND_URL;
 
@@ -99,22 +99,80 @@ app.post("/api/sync-webhook", async (_req, res) => {
 
   const webhookUrl = `${backendUrl}/api/webhook/vapi`;
   const fieldEnums = fields ? fields.map((f: any) => f.key) : [];
+  console.log(`🔑 Syncing schema "${name}" with keys:`, fieldEnums);
 
   try {
-    const getResp = await fetch(`https://api.vapi.ai/assistant/${assistantId}`, {
-      headers: { Authorization: `Bearer ${vapiKey}` },
-    });
-    const assistant = await getResp.json() as any;
+    // ─── 1. Build Schema String ───
+    const schemaText = fields
+      .map((f: any, i: number) => `${i + 1}. ${f.key} (${f.type}) — ${f.label}`)
+      .join('\n');
 
-    const systemPrompt = `You are NeuroNova, an AI helper helping users fill out the "${name}" form. 
-CORE RULE: ALWAYS call update_form_field *immediately* when you extract any piece of information. 
-Available fields: ${fieldEnums.join(", ")}.`;
+    // ─── 2. Define Base Prompt Template ───
+    const BASE_PROMPT = `You are Sahayak, a warm and patient voice assistant helping citizens of India fill out government and financial forms over a voice call. 
+
+---
+
+## YOUR PRIMARY JOB
+You have been given a policy document for a specific government scheme. Your job has THREE phases:
+
+PHASE 1 — POLICY BRIEFING (30 seconds max)
+PHASE 2 — USER CONSENT
+PHASE 3 — FORM FILLING (one field at a time)
+
+---
+
+## PHASE 1 — POLICY BRIEFING
+When the call begins, greet the user and immediately give a CRISP summary (3 points) of the policy document provided below.
+Once finished, ask: "Kya aap samjhe? Aur kya aap is yojana ke liye apply karna chahte hain?"
+
+---
+
+## PHASE 2 — USER CONSENT
+- IF the user says YES, proceed to PHASE 3.
+- IF they ask a question, answer concisely from the policy document and ask for consent again.
+
+---
+
+## PHASE 3 — FORM FILLING
+ONLY ask for the fields listed in the 'FORM SCHEMA' section below. 
+1. Ask one field at a time.
+2. Confirm the value softly.
+3. Call 'update_form_field' immediately after confirmation.
+4. Move to the next field.
+
+---
+
+## TOOL USAGE — CRITICAL RULE
+- ONLY use the keys listed in the 'FORM SCHEMA' section.
+- Match exact casing and spelling.
+- Format: { "field": "<exact_key>", "value": "<value>" }
+
+---
+
+## INJECTED CONTEXT
+
+### POLICY DOCUMENT:
+{{POLICY_DOCUMENT_TEXT}}
+
+### FORM SCHEMA:
+{{FORM_SCHEMA_JSON}}
+
+---
+
+Proceed with Phase 1 now.`;
+
+    // ─── 3. Inject Context ───
+    const policyText = description || "This scheme provides support for eligible citizens to access government benefits.";
+    const finalPrompt = BASE_PROMPT
+      .replace('{{POLICY_DOCUMENT_TEXT}}', policyText)
+      .replace('{{FORM_SCHEMA_JSON}}', schemaText);
 
     const tools = [
       {
         type: "function",
         function: {
           name: "update_form_field",
+          description: "Updates a specific form field in real-time.",
           parameters: {
             type: "object",
             properties: {
@@ -128,10 +186,37 @@ Available fields: ${fieldEnums.join(", ")}.`;
       }
     ];
 
+    // ─── 4. Patch Vapi Assistant ───
+    const firstMsg = "Namaste! Main Sahayak hoon — aapka digital sahayak. Kya aap Hindi mein baat karna chahenge, ya English mein?";
+
     await fetch(`https://api.vapi.ai/assistant/${assistantId}`, {
       method: "PATCH",
       headers: { Authorization: `Bearer ${vapiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ serverUrl: webhookUrl, model: { ...assistant.model, systemPrompt, tools } }),
+      body: JSON.stringify({ 
+        serverUrl: webhookUrl, 
+        firstMessage: firstMsg,
+        silenceTimeoutSeconds: 30,
+        backchannelingEnabled: false,
+        backgroundDenoisingEnabled: true,
+        fillerWordsEnabled: false,
+        transcriber: {
+          provider: "deepgram",
+          model: "nova-2",
+          language: language?.split('-')[0] || 'en',
+          smartFormat: true
+        },
+        voice: {
+          provider: "11labs",
+          voiceId: "pNInz6obpg8ndEao7m8B" // Adam - High-quality male voice
+        },
+        model: {
+          provider: "groq",
+          model: "llama3-70b-8192",
+          systemPrompt: finalPrompt,
+          tools,
+          temperature: 0.1 // Lowered for more precise extraction
+        } 
+      }),
     });
 
     res.json({ success: true, webhookUrl });

@@ -66,16 +66,34 @@ export function useVapiCall() {
       setVapiCallId(null);
     });
 
+    vapi.on("speech-start", () => {
+      console.log("🎤 Speech detected!");
+    });
+
+    vapi.on("speech-end", () => {
+      console.log("🔇 Speech ended.");
+    });
+
     vapi.on("error", (err: any) => {
       console.error("🔴 VAPI_ERROR_EVENT:", err);
+      
+      // Manually extract properties if JSON.stringify fails
+      const debugErr: any = {};
+      if (err) {
+        Object.getOwnPropertyNames(err).forEach(prop => {
+          debugErr[prop] = err[prop];
+        });
+      }
+      console.log("🛠️ Detailed Error Debug:", debugErr);
+      
       let msg = "Communication session error.";
-      if (typeof err === "string") msg = err;
-      else if (err?.message && typeof err.message === "string") msg = err.message;
-      else if (err?.error?.message && typeof err.error.message === "string") msg = err.error.message;
-      else if (err?.error && typeof err.error === "string") msg = err.error;
-      else msg = JSON.stringify(err);
+      if (err?.error?.message?.msg) msg = err.error.message.msg;
+      else if (err?.error?.message) msg = err.error.message;
+      else if (err?.message) msg = err.message;
+      else if (typeof err === "string") msg = err;
+      else msg = JSON.stringify(debugErr);
 
-      setError(msg);
+      setError(`Assistant Error: ${msg}`);
       setRawError(err);
       setCallActive(false);
       setVapiCallId(null);
@@ -110,7 +128,7 @@ export function useVapiCall() {
     const user = useAuthStore.getState().user;
 
     try {
-      console.log("🔄 Syncing Vapi assistant configuration...");
+      console.log(`🔄 Syncing Vapi assistant (${assistantId}) config...`);
       const syncResp = await fetch(`${apiUrl}/api/sync-webhook`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,7 +136,8 @@ export function useVapiCall() {
           assistantId, 
           fields: activeSchema?.fields || [],
           name: activeSchema?.name,
-          description: activeSchema?.description
+          description: activeSchema?.description,
+          language: selectedLanguage
         }),
       });
       const syncData = await syncResp.json();
@@ -149,10 +168,7 @@ export function useVapiCall() {
         sessionId: currentSessionId,
         schemaId: activeSchema?._id,
         userId: user?.id
-      },
-      // Note: We no longer override 'model' here to avoid 'missing provider' errors.
-      // All model-level changes (prompt, tools) are handled by the backend sync-webhook patch.
-      firstMessage: langConfig.firstMessage || `Namaste! I am Sahayak. I will help you fill out the ${activeSchema?.name} form. May I know your name?`,
+      }
     };
 
     console.log("🚀 Starting Vapi call with overrides:", assistantOverrides);

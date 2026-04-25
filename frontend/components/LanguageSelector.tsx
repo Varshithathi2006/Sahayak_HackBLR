@@ -19,7 +19,7 @@ export default function LanguageSelector() {
         transcriber: {
           provider: "deepgram",
           model: "nova-2",
-          language: config.code === "en-IN" ? "en-IN" : config.code,
+          language: config.code.split('-')[0],
         }
       });
       console.log(`🌐 Switched voice assistant language to: ${config.name}`);
@@ -43,7 +43,7 @@ export default function LanguageSelector() {
             className={`
               flex flex-col items-center justify-center p-2 rounded border transition-all duration-200
               ${selectedLanguage === lang.code 
-                ? "bg-blue-600/20 border-blue-500/50 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.1)]" 
+                ? "bg-violet-600/20 border-violet-500/50 text-violet-400 shadow-[0_0_10px_rgba(167,139,250,0.1)]" 
                 : "bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-400"
               }
               cursor-pointer active:scale-95
