@@ -72,28 +72,28 @@ const TECH_STACK = [
 const TEAM = [
   {
     name: "Varshitha Thilak Kumar",
-    role: "Team Lead",
+    role: "AI and Reasoning Lead",
     initials: "VT",
     gradient: "from-violet-500 to-indigo-600",
     badgeColor: "#a78bfa",
   },
   {
     name: "Shreya Arun",
-    role: "Web Designer",
+    role: "Data Architect and Backend lead",
     initials: "SA",
     gradient: "from-pink-500 to-rose-600",
     badgeColor: "#f472b6",
   },
   {
     name: "Siri Sanjana S",
-    role: "Developer",
+    role: "Voice Interface and UX Designer",
     initials: "SS",
     gradient: "from-cyan-500 to-blue-600",
     badgeColor: "#22d3ee",
   },
   {
     name: "Anagha Menon",
-    role: "Tester",
+    role: "Privacy and Computer Vision Developer",
     initials: "AM",
     gradient: "from-emerald-500 to-teal-600",
     badgeColor: "#34d399",
