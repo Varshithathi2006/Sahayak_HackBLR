@@ -7,7 +7,7 @@ const QDRANT_API_KEY = process.env.QDRANT_API_KEY || "";
 const COLLECTION_GLOSSARY = process.env.QDRANT_COLLECTION_GLOSSARY || "terms_glossary";
 const COLLECTION_KNOWLEDGE = process.env.QDRANT_COLLECTION_KNOWLEDGE || "knowledge_base";
 const COLLECTION_MEMORY = process.env.QDRANT_COLLECTION_MEMORY || "user_memory";
-const VECTOR_SIZE = 384; // Xenova/all-MiniLM-L6-v2 (Local Modeling)
+const VECTOR_SIZE = 1536; // OpenAI text-embedding-3-small dimensions
 
 export const qdrantClient = new QdrantClient({ 
   url: QDRANT_URL,

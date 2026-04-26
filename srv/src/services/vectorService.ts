@@ -41,7 +41,7 @@ export async function getEmbedding(text: string): Promise<number[]> {
   // 3. Final Fallback: High-Quality Mock Vector (Deterministic based on text)
   // This allows the app to start and demo without crashing on Vercel.
   console.log("🛠️ Using production mock embedding (No Transformers).");
-  const mockVector = new Array(384).fill(0).map((_, i) => {
+  const mockVector = new Array(1536).fill(0).map((_, i) => {
     let hash = 0;
     for (let j = 0; j < cleanText.length; j++) {
       hash = (hash << 5) - hash + cleanText.charCodeAt(j);
@@ -52,4 +52,4 @@ export async function getEmbedding(text: string): Promise<number[]> {
   return mockVector;
 }
 
-export const zeroVector = new Array(384).fill(0);
+export const zeroVector = new Array(1536).fill(0);

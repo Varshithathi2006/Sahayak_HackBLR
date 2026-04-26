@@ -3,7 +3,12 @@ import mongoose from "mongoose";
 const fieldSchema = new mongoose.Schema({
   key: { type: String, required: true },
   label: { type: String, required: true },
-  type: { type: String, enum: ["text", "number", "boolean", "select"], required: true },
+  type: { 
+    type: String, 
+    enum: ["text", "number", "boolean", "select", "email", "password", "tel", "url"], 
+    required: true 
+  },
+  hint: { type: String },
   options: [String], // For select type
   placeholder: String,
   icon: String,

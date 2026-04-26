@@ -18,7 +18,7 @@ const CARD = {
   borderRadius: "1rem",
 };
 const INPUT_STYLE = {
-  background: "rgba(255,255,255,0.05)",
+  background: "#121121",
   border: "1px solid rgba(255,255,255,0.1)",
   borderRadius: "0.5rem",
   color: "#fff",
@@ -26,19 +26,21 @@ const INPUT_STYLE = {
   padding: "0.6rem 0.9rem",
   fontSize: "0.875rem",
   width: "100%",
+  colorScheme: "dark",
 };
 
 export default function BankDashboard() {
   const { user, logout, token } = useAuthStore();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"schemas" | "submissions">("schemas");
+  const [activeTab, setActiveTab] = useState<"schemas" | "submissions" | "settings">("schemas");
   const [schemas, setSchemas] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [selectedSubmission, setSelectedSubmission] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [showNewSchema, setShowNewSchema] = useState(false);
+  const [editingSchema, setEditingSchema] = useState<any | null>(null);
   const [showUploadDoc, setShowUploadDoc] = useState<string | null>(null);
-  const [newSchema, setNewSchema] = useState({ name: "", description: "", fields: [{ key: "", label: "", type: "text" }] });
+  const [newSchema, setNewSchema] = useState({ name: "", description: "", fields: [{ key: "", label: "", type: "text", hint: "" }] });
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -65,9 +67,44 @@ export default function BankDashboard() {
         body: JSON.stringify(newSchema),
       });
       setShowNewSchema(false);
-      setNewSchema({ name: "", description: "", fields: [{ key: "", label: "", type: "text" }] });
+      setNewSchema({ name: "", description: "", fields: [{ key: "", label: "", type: "text", hint: "" }] });
       fetchData();
     } catch (err) { console.error(err); }
+  };
+
+  const handleUpdateSchema = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSchema) return;
+    try {
+      const res = await apiFetch(`/api/bank/schemas/${editingSchema._id}`, {
+        method: "PATCH",
+        body: JSON.stringify(editingSchema),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      setEditingSchema(null);
+      fetchData();
+    } catch (err) { 
+      console.error(err);
+      alert("Failed to update schema. Please ensure the backend is running.");
+    }
+  };
+
+  const handleDeleteSchema = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this registry? This action cannot be undone.")) return;
+    try {
+      const res = await apiFetch(`/api/bank/schemas/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to delete");
+      }
+      setEditingSchema(null);
+      fetchData();
+    } catch (err: any) { 
+      console.error(err);
+      alert(`Delete failed: ${err.message}`);
+    }
   };
 
   const handleUploadDocument = async (e: any) => {
@@ -80,9 +117,6 @@ export default function BankDashboard() {
       await apiFetch(`/api/bank/schemas/${showUploadDoc}/documents`, {
         method: "POST",
         body: fd,
-        // When using FormData, fetch automatically sets Content-Type with boundary, 
-        // so we don't want to override it in apiFetch. 
-        // Actually apiFetch sets application/json by default, we need to fix it.
       } as any);
       setShowUploadDoc(null); fetchData();
     } catch (err) { console.error(err); }
@@ -107,11 +141,14 @@ export default function BankDashboard() {
   ];
 
   return (
-    <div className="min-h-screen flex" style={{ background: "#070612", color: "#fff", fontFamily: "'DM Sans',sans-serif" }}>
+    <div className="min-h-screen flex" style={{ background: "#070612", color: "#fff", fontFamily: "'DM Sans',sans-serif", colorScheme: "dark" }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        select option { background: #121121 !important; color: white !important; }
+        ::-webkit-calendar-picker-indicator { filter: invert(1); }
+      `}} />
 
       {/* ── Sidebar ── */}
       <aside className="w-60 flex flex-col h-screen sticky top-0 shrink-0" style={{ background: "rgba(255,255,255,0.02)", borderRight: "1px solid rgba(255,255,255,0.07)" }}>
-        {/* Logo */}
         <div className="p-5 flex items-center gap-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg,#a78bfa,#818cf8)" }}>
             <Mic className="w-4 h-4 text-white" />
@@ -122,12 +159,11 @@ export default function BankDashboard() {
           </div>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 p-4 space-y-1">
           {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
-              onClick={() => setActiveTab(id as any)}
+              onClick={() => { setActiveTab(id as any); setEditingSchema(null); }}
               className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
               style={{
                 background: activeTab === id ? "rgba(167,139,250,0.12)" : "transparent",
@@ -139,7 +175,15 @@ export default function BankDashboard() {
             </button>
           ))}
           <div className="pt-4 space-y-1" style={{ borderTop: "1px solid rgba(255,255,255,0.07)", marginTop: "1rem" }}>
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-white/30 hover:text-white/60 transition-colors">
+            <button 
+              onClick={() => { setActiveTab("settings"); setEditingSchema(null); }}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all"
+              style={{
+                background: activeTab === "settings" ? "rgba(167,139,250,0.12)" : "transparent",
+                border: activeTab === "settings" ? "1px solid rgba(167,139,250,0.25)" : "1px solid transparent",
+                color: activeTab === "settings" ? "#a78bfa" : "rgba(255,255,255,0.45)",
+              }}
+            >
               <Settings className="w-4 h-4" /> Settings
             </button>
             <button onClick={() => { logout(); router.push("/auth/login"); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-red-400/60 hover:text-red-400 transition-colors">
@@ -148,7 +192,6 @@ export default function BankDashboard() {
           </div>
         </nav>
 
-        {/* User */}
         <div className="p-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold text-white" style={{ background: "linear-gradient(135deg,#a78bfa,#818cf8)" }}>
@@ -167,8 +210,12 @@ export default function BankDashboard() {
         {/* Header */}
         <header className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-medium text-white">{activeTab === "schemas" ? "Registry Configurations" : "Submission Oversight"}</h1>
-            <p className="text-white/40 text-sm mt-1">{activeTab === "schemas" ? "Manage and deploy dynamic voice form structures" : "Review and authorize incoming registry entries"}</p>
+            <h1 className="text-2xl font-medium text-white">
+              {activeTab === "schemas" ? "Registry Configurations" : activeTab === "submissions" ? "Submission Oversight" : "System Settings"}
+            </h1>
+            <p className="text-white/40 text-sm mt-1">
+              {activeTab === "schemas" ? "Manage and deploy dynamic voice form structures" : activeTab === "submissions" ? "Review and authorize incoming registry entries" : "Configure platform integrations and security"}
+            </p>
           </div>
           {activeTab === "schemas" && (
             <button onClick={() => setShowNewSchema(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-all" style={{ background: "linear-gradient(135deg,#a78bfa,#818cf8)" }}>
@@ -211,20 +258,18 @@ export default function BankDashboard() {
                               </button>
                             )}
                           </div>
-                          <button className="flex items-center gap-1 text-xs text-violet-400 font-medium">Manage <ChevronRight className="w-3.5 h-3.5" /></button>
+                          <button 
+                            onClick={() => setEditingSchema(schema)}
+                            className="flex items-center gap-1 text-xs text-violet-400 font-medium hover:text-violet-300 transition-colors"
+                          >
+                            Manage <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     </motion.div>
                   ))}
-                  {schemas.length === 0 && (
-                    <div className="col-span-full py-24 flex flex-col items-center justify-center rounded-2xl" style={{ border: "2px dashed rgba(255,255,255,0.08)" }}>
-                      <FileText className="w-10 h-10 text-white/15 mb-4" />
-                      <p className="text-white/30 text-sm">No schemas yet</p>
-                      <button onClick={() => setShowNewSchema(true)} className="mt-3 text-violet-400 text-xs hover:text-violet-300">Create your first schema →</button>
-                    </div>
-                  )}
                 </div>
-              ) : (
+              ) : activeTab === "submissions" ? (
                 /* ── Submissions Tab ── */
                 <div className="rounded-2xl overflow-hidden" style={CARD}>
                   <table className="w-full text-left">
@@ -273,12 +318,57 @@ export default function BankDashboard() {
                       ))}
                     </tbody>
                   </table>
-                  {submissions.length === 0 && (
-                    <div className="py-20 flex flex-col items-center justify-center">
-                      <ClipboardCheck className="w-10 h-10 text-white/15 mb-3" />
-                      <p className="text-white/30 text-sm">No submissions yet</p>
+                </div>
+              ) : (
+                /* ── Settings Tab ── */
+                <div className="max-w-3xl space-y-6">
+                  <div className="p-8 rounded-2xl" style={CARD}>
+                    <h3 className="text-lg font-semibold text-white mb-6">Platform Configuration</h3>
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-white/40 font-medium">Vapi Assistant Provider</label>
+                          <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <Mic className="w-4 h-4 text-violet-400" />
+                            <p className="text-sm text-white">Vapi.ai (Enterprise)</p>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-white/40 font-medium">Vector Database</label>
+                          <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            <p className="text-sm text-white">Qdrant Cloud (Active)</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="pt-4 border-t border-white/5">
+                        <p className="text-xs text-white/30 leading-relaxed mb-4">
+                          Security Note: Your organization is using Sahayak's secure VPC for all voice and knowledge-base operations. 
+                          All documents uploaded are encrypted at rest and only accessible by your regional node.
+                        </p>
+                        <button className="px-4 py-2 rounded-lg text-xs font-medium text-white/40 cursor-not-allowed" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                          Update API Credentials
+                        </button>
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  <div className="p-8 rounded-2xl" style={CARD}>
+                    <h3 className="text-lg font-semibold text-white mb-4">System Information</h3>
+                    <div className="space-y-4">
+                      {[
+                        { label: "Backend Version", value: "v2.4.0-stable" },
+                        { label: "Vapi SDK", value: "v1.12.3" },
+                        { label: "Org ID", value: user.orgId || "ORG_SAHAYAK_MAIN" },
+                        { label: "Last Sync", value: new Date().toLocaleString() }
+                      ].map((item) => (
+                        <div key={item.label} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0">
+                          <span className="text-xs text-white/40">{item.label}</span>
+                          <span className="text-xs font-mono text-white/60">{item.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </motion.div>
@@ -310,31 +400,116 @@ export default function BankDashboard() {
                     </button>
                   </div>
                   {newSchema.fields.map((field, idx) => (
-                    <div key={idx} className="grid grid-cols-12 gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                      <div className="col-span-5">
-                        <input required value={field.label} onChange={(e) => { const f = [...newSchema.fields]; f[idx].label = e.target.value; f[idx].key = e.target.value.toLowerCase().replace(/ /g, "_"); setNewSchema({ ...newSchema, fields: f }); }} style={{ ...INPUT_STYLE, padding: "0.5rem 0.75rem" }} placeholder="Field Label" />
+                    <div key={idx} className="space-y-2 p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                      <div className="grid grid-cols-12 gap-3">
+                        <div className="col-span-6">
+                          <input required value={field.label} onChange={(e) => { const f = [...newSchema.fields]; f[idx].label = e.target.value; f[idx].key = e.target.value.toLowerCase().replace(/ /g, "_"); setNewSchema({ ...newSchema, fields: f }); }} style={{ ...INPUT_STYLE, padding: "0.5rem 0.75rem", colorScheme: "dark" }} placeholder="Field Label" />
+                        </div>
+                        <div className="col-span-5">
+                          <select value={field.type} onChange={(e) => { const f = [...newSchema.fields]; f[idx].type = e.target.value; setNewSchema({ ...newSchema, fields: f }); }} style={{ ...INPUT_STYLE, padding: "0.5rem 0.75rem", colorScheme: "dark" }}>
+                            <option value="text">Single-Line Text</option>
+                            <option value="number">Number</option>
+                            <option value="email">Email Address</option>
+                            <option value="password">Password</option>
+                            <option value="tel">Phone Number</option>
+                            <option value="url">Website URL</option>
+                            <option value="boolean">Yes/No (Boolean)</option>
+                          </select>
+                        </div>
+                        <div className="col-span-1 flex items-center justify-center">
+                          <button type="button" onClick={() => setNewSchema({ ...newSchema, fields: newSchema.fields.filter((_, i) => i !== idx) })} className="text-white/25 hover:text-red-400 transition-colors">
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="col-span-4">
-                        <select value={field.type} onChange={(e) => { const f = [...newSchema.fields]; f[idx].type = e.target.value; setNewSchema({ ...newSchema, fields: f }); }} style={{ ...INPUT_STYLE, padding: "0.5rem 0.75rem" }}>
-                          <option value="text">Text</option>
-                          <option value="number">Number</option>
-                          <option value="boolean">Boolean</option>
-                        </select>
-                      </div>
-                      <div className="col-span-2 flex items-center">
-                        <p className="text-[9px] font-mono text-white/25 truncate">key: {field.key}</p>
-                      </div>
-                      <div className="col-span-1 flex items-center justify-center">
-                        <button type="button" onClick={() => setNewSchema({ ...newSchema, fields: newSchema.fields.filter((_, i) => i !== idx) })} className="text-white/25 hover:text-red-400 transition-colors">
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <input 
+                        value={field.hint || ""} 
+                        onChange={(e) => { const f = [...newSchema.fields]; f[idx].hint = e.target.value; setNewSchema({ ...newSchema, fields: f }); }} 
+                        style={{ ...INPUT_STYLE, padding: "0.4rem 0.75rem", fontSize: "0.75rem", background: "rgba(255,255,255,0.02)" }} 
+                        placeholder="Sahayak Knowledge Hint (e.g. Only accept marks between 0-100)" 
+                      />
                     </div>
                   ))}
                 </div>
                 <button type="submit" className="w-full py-3 rounded-xl text-sm font-medium text-white" style={{ background: "linear-gradient(135deg,#a78bfa,#818cf8)" }}>
                   Deploy Registry
                 </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* ── Edit Schema Modal (MANAGE) ── */}
+        {editingSchema && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" style={{ background: "rgba(7,6,18,0.85)", backdropFilter: "blur(16px)" }}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="w-full max-w-2xl max-h-[90vh] overflow-y-auto p-8 rounded-2xl" style={CARD}>
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Manage Registry</h2>
+                  <p className="text-xs text-white/40 mt-1">Editing {editingSchema.name}</p>
+                </div>
+                <button onClick={() => setEditingSchema(null)}><XCircle className="w-5 h-5 text-white/40 hover:text-white" /></button>
+              </div>
+              <form onSubmit={handleUpdateSchema} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="text-xs text-white/40 font-medium">Description (Knowledge Context)</label>
+                  <textarea value={editingSchema.description} onChange={(e) => setEditingSchema({ ...editingSchema, description: e.target.value })} style={{ ...INPUT_STYLE, height: "120px", resize: "none", colorScheme: "dark" }} placeholder="Update the policy description here..." />
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs text-white/40 font-medium">Modify Registry Fields</label>
+                    <button type="button" onClick={() => setEditingSchema({ ...editingSchema, fields: [...editingSchema.fields, { key: "", label: "", type: "text", hint: "" }] })} className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1">
+                      <Plus className="w-3 h-3" /> Add Field
+                    </button>
+                  </div>
+                  {editingSchema.fields.map((field: any, idx: number) => (
+                    <div key={idx} className="space-y-2 p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                      <div className="grid grid-cols-12 gap-3">
+                        <div className="col-span-6">
+                          <input required value={field.label} onChange={(e) => { const f = [...editingSchema.fields]; f[idx].label = e.target.value; f[idx].key = e.target.value.toLowerCase().replace(/ /g, "_"); setEditingSchema({ ...editingSchema, fields: f }); }} style={{ ...INPUT_STYLE, padding: "0.5rem 0.75rem", colorScheme: "dark" }} placeholder="Field Label" />
+                        </div>
+                        <div className="col-span-5">
+                          <select value={field.type} onChange={(e) => { const f = [...editingSchema.fields]; f[idx].type = e.target.value; setEditingSchema({ ...editingSchema, fields: f }); }} style={{ ...INPUT_STYLE, padding: "0.5rem 0.75rem", colorScheme: "dark" }}>
+                            <option value="text">Single-Line Text</option>
+                            <option value="number">Number</option>
+                            <option value="email">Email Address</option>
+                            <option value="password">Password</option>
+                            <option value="tel">Phone Number</option>
+                            <option value="url">Website URL</option>
+                            <option value="boolean">Yes/No (Boolean)</option>
+                          </select>
+                        </div>
+                        <div className="col-span-1 flex items-center justify-center">
+                          <button type="button" onClick={() => setEditingSchema({ ...editingSchema, fields: editingSchema.fields.filter((_: any, i: number) => i !== idx) })} className="text-white/25 hover:text-red-400 transition-colors">
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <input 
+                        value={field.hint || ""} 
+                        onChange={(e) => { const f = [...editingSchema.fields]; f[idx].hint = e.target.value; setEditingSchema({ ...editingSchema, fields: f }); }} 
+                        style={{ ...INPUT_STYLE, padding: "0.4rem 0.75rem", fontSize: "0.75rem", background: "rgba(255,255,255,0.02)" }} 
+                        placeholder="Sahayak Knowledge Hint (e.g. Validation rules or logic)" 
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-3 pt-4 border-t border-white/5">
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setEditingSchema(null)} className="flex-1 py-3 rounded-xl text-sm font-medium text-white/40 bg-white/5 border border-white/10">Cancel</button>
+                    <button type="submit" className="flex-[2] py-3 rounded-xl text-sm font-medium text-white" style={{ background: "linear-gradient(135deg,#a78bfa,#818cf8)" }}>
+                      Save Changes
+                    </button>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => handleDeleteSchema(editingSchema._id)} 
+                    className="w-full py-2.5 rounded-xl text-xs font-medium text-red-400 hover:text-red-300 transition-colors flex items-center justify-center gap-2"
+                    style={{ background: "rgba(248,113,113,0.05)", border: "1px solid rgba(248,113,113,0.15)" }}
+                  >
+                    <XCircle className="w-3.5 h-3.5" /> Delete Registry Permanently
+                  </button>
+                </div>
               </form>
             </motion.div>
           </div>

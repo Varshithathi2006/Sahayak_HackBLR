@@ -204,9 +204,5 @@ export function useVapiCall() {
     setCallActive(false);
   }, [setCallActive]);
 
-  const setAssistantOverrides = useCallback((overrides: any) => {
-    vapiRef.current?.setAssistantOverrides(overrides);
-  }, []);
-
-  return { startCall, stopCall, setAssistantOverrides, callActive };
+  return { startCall, stopCall, callActive };
 }

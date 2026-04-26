@@ -1,29 +1,15 @@
 "use client";
 
 import { useFormStore } from "@/lib/formStore";
-import { SUPPORTED_LANGUAGES, getLanguageConfig } from "@/lib/localizations";
+import { SUPPORTED_LANGUAGES } from "@/lib/localizations";
 import { Languages } from "lucide-react";
-import { useVapiCall } from "@/hooks/useVapiCall";
 
 export default function LanguageSelector() {
-  const { selectedLanguage, setLanguage, callActive } = useFormStore();
-  const { setAssistantOverrides } = useVapiCall();
+  const { selectedLanguage, setLanguage } = useFormStore();
 
   const handleLanguageChange = (code: string) => {
     setLanguage(code);
-    
-    // If a call is active, sync the language with the voice assistant
-    if (callActive) {
-      const config = getLanguageConfig(code);
-      setAssistantOverrides({
-        transcriber: {
-          provider: "deepgram",
-          model: "nova-2",
-          language: config.code.split('-')[0],
-        }
-      });
-      console.log(`🌐 Switched voice assistant language to: ${config.name}`);
-    }
+    console.log(`🌐 Interface language changed to: ${code}`);
   };
 
   return (

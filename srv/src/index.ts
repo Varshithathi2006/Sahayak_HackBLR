@@ -8,6 +8,7 @@ import authRouter from "./routes/auth.js";
 import bankRouter from "./routes/bank.js";
 import clientRouter from "./routes/client.js";
 import mongoose from "mongoose";
+import { initCollections } from "./services/qdrant.js";
 
 dotenv.config();
 
@@ -18,6 +19,8 @@ const PORT = parseInt(process.env.PORT || "4000", 10);
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
   process.env.FRONTEND_URL,
 ].filter(Boolean) as string[];
 
@@ -29,7 +32,7 @@ app.use(cors({
       callback(null, true); // Allow in development
     }
   },
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Cache-Control"],
   credentials: true,
 }));
@@ -49,7 +52,11 @@ async function connectToDatabases() {
     console.log("🍃 Connecting to MongoDB...");
     await mongoose.connect(mongoUri);
     isConnected = true;
-    console.log("✅ Database connection established.");
+    console.log("✅ MongoDB connection established.");
+
+    console.log("📡 Initializing Qdrant collections...");
+    await initCollections();
+    console.log("✅ Qdrant collections ready.");
   } catch (err) {
     console.error("❌ Database connection failed:", err);
     throw err;
@@ -108,48 +115,52 @@ app.post("/api/sync-webhook", async (_req, res) => {
       .join('\n');
 
     // ─── 2. Define Base Prompt Template ───
-    const BASE_PROMPT = `You are Sahayak, a warm and patient voice assistant helping citizens of India fill out government and financial forms over a voice call. 
+    const BASE_PROMPT = `You are Sahayak, an intelligent and compassionate voice assistant helping a user with the **{{SCHEME_NAME}}**.
+
+---
+
+## 🛑 STRICT LANGUAGE COMPLIANCE 🛑
+- The user's primary language is **{{LANGUAGE_NAME}}**.
+- **MANDATORY**: You must respond ONLY in **{{LANGUAGE_NAME}}**.
+- Even if the user speaks to you in English, you MUST translate your response back into **{{LANGUAGE_NAME}}**.
+- DO NOT use English words unless there is no equivalent in **{{LANGUAGE_NAME}}**.
+- Use simple, culturally appropriate vocabulary for rural India.
+- Your goal is to make the user feel comfortable in their native tongue.
 
 ---
 
 ## YOUR PRIMARY JOB
-You have been given a policy document for a specific government scheme. Your job has THREE phases:
+Follow this 3-phase flow strictly for **{{SCHEME_NAME}}**.
 
 PHASE 1 — POLICY BRIEFING (30 seconds max)
+Summarize the **{{SCHEME_NAME}}** and its benefits in **{{LANGUAGE_NAME}}**.
+
 PHASE 2 — USER CONSENT
-PHASE 3 — FORM FILLING (one field at a time)
+Wait for the user to say "Yes" or ask a question about **{{SCHEME_NAME}}** in **{{LANGUAGE_NAME}}**.
+
+PHASE 3 — DYNAMIC FORM FILLING
+Ask for the fields in the 'FORM SCHEMA' one by one in **{{LANGUAGE_NAME}}**.
 
 ---
 
-## PHASE 1 — POLICY BRIEFING
-When the call begins, greet the user and immediately give a CRISP summary (3 points) of the policy document provided below.
-Once finished, ask: "Kya aap samjhe? Aur kya aap is yojana ke liye apply karna chahte hain?"
+## INTELLIGENCE & AUTOCORRECT
+1. **Field Knowledge**: Understand what you are asking. If you ask for 'Phone Number' and hear 'John', gently explain the error in **{{LANGUAGE_NAME}}**.
+2. **Format Verification**: Proactively check if the user's answer makes sense for the field.
+3. **Conversational Editing**: If the user says "Wait, change that" or "I meant X, not Y", IMMEDIATELY call 'update_form_field' for that specific field.
+4. **Natural Suggesstions**: If the user is unsure, explain why it's needed based on the **{{SCHEME_NAME}}** policy doc in **{{LANGUAGE_NAME}}**.
 
 ---
 
-## PHASE 2 — USER CONSENT
-- IF the user says YES, proceed to PHASE 3.
-- IF they ask a question, answer concisely from the policy document and ask for consent again.
-
----
-
-## PHASE 3 — FORM FILLING
-ONLY ask for the fields listed in the 'FORM SCHEMA' section below. 
-1. Ask one field at a time.
-2. Confirm the value softly.
-3. Call 'update_form_field' immediately after confirmation.
-4. Move to the next field.
-
----
-
-## TOOL USAGE — CRITICAL RULE
-- ONLY use the keys listed in the 'FORM SCHEMA' section.
-- Match exact casing and spelling.
+## TOOL USAGE
+- Call 'update_form_field' for EVERY confirmation or change.
 - Format: { "field": "<exact_key>", "value": "<value>" }
 
 ---
 
 ## INJECTED CONTEXT
+
+### SCHEME NAME:
+{{SCHEME_NAME}}
 
 ### POLICY DOCUMENT:
 {{POLICY_DOCUMENT_TEXT}}
@@ -159,13 +170,24 @@ ONLY ask for the fields listed in the 'FORM SCHEMA' section below.
 
 ---
 
-Proceed with Phase 1 now.`;
+Proceed with Phase 1 for **{{SCHEME_NAME}}** now.`;
 
     // ─── 3. Inject Context ───
+    const languageMap: Record<string, string> = {
+      'en-IN': 'English',
+      'hi-IN': 'Hindi',
+      'kn-IN': 'Kannada',
+      'te-IN': 'Telugu',
+      'ta-IN': 'Tamil'
+    };
+    const langName = languageMap[language] || 'the user\'s preferred language';
+
     const policyText = description || "This scheme provides support for eligible citizens to access government benefits.";
     const finalPrompt = BASE_PROMPT
+      .replace(/{{SCHEME_NAME}}/g, name || "the selected scheme")
       .replace('{{POLICY_DOCUMENT_TEXT}}', policyText)
-      .replace('{{FORM_SCHEMA_JSON}}', schemaText);
+      .replace('{{FORM_SCHEMA_JSON}}', schemaText)
+      .replace(/{{LANGUAGE_NAME}}/g, langName);
 
     const tools = [
       {
@@ -187,7 +209,16 @@ Proceed with Phase 1 now.`;
     ];
 
     // ─── 4. Patch Vapi Assistant ───
-    const firstMsg = "Namaste! Main Sahayak hoon — aapka digital sahayak. Kya aap Hindi mein baat karna chahenge, ya English mein?";
+    // First message based on language
+    const firstMessages: Record<string, string> = {
+      "en-IN": "Namaste! I am Sahayak, your helper for filling out your government form. May I know your name, and have you spoken with me before?",
+      "hi-IN": "नमस्ते! मैं सहायक हूँ, आपका सरकारी फॉर्म भरने में मददगार। क्या मैं आपका नाम जान सकता हूँ, और क्या आपने पहले मुझसे बात की है?",
+      "kn-IN": "ನಮಸ್ಕಾರ! ನಾನು ಸಹಾಯಕ, ನಿಮ್ಮ ಸರ್ಕಾರಿ ಫಾರ್ಮ್ ತುಂಬಲು ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ನಿಮ್ಮ ಹೆಸರನ್ನು ತಿಳಿಯಬಹುದೇ ಮತ್ತು ನೀವು ಈ ಹಿಂದೆ ನನ್ನೊಂದಿಗೆ ಮಾತನಾಡಿದ್ದೀರಾ?",
+      "te-IN": "నమస్కారం! నేను సహాయక్, మీ ప్రభుత్వ ఫారమ్‌ను పూరించడంలో సహాయపడతాను. నేను మీ పేరు తెలుసుకోవచ్చా, మరియు మీరు ఇంతకు ముందు నాతో మాట్లాడారా?",
+      "ta-IN": "வணக்கம்! நான் சகாயக், உங்கள் அரசு விண்ணப்பப் படிவத்தைப் பூர்த்தி செய்ய உதவுகிறேன். உங்கள் பெயரை நான் தெரிந்து கொள்ளலாமா, இதற்கு முன்பு என்னிடம் பேசியிருக்கிறீர்களா?"
+    };
+
+    const firstMsg = firstMessages[language] || "Namaste! Main Sahayak hoon — aapka digital sahayak. Kya aap Hindi mein baat karna chahenge, ya English mein?";
 
     await fetch(`https://api.vapi.ai/assistant/${assistantId}`, {
       method: "PATCH",
@@ -197,7 +228,7 @@ Proceed with Phase 1 now.`;
         firstMessage: firstMsg,
         silenceTimeoutSeconds: 30,
         backchannelingEnabled: false,
-        backgroundDenoisingEnabled: true,
+        backgroundDenoisingEnabled: false,
         fillerWordsEnabled: false,
         transcriber: {
           provider: "deepgram",
@@ -207,7 +238,7 @@ Proceed with Phase 1 now.`;
         },
         voice: {
           provider: "11labs",
-          voiceId: "pNInz6obpg8ndEao7m8B" // Adam - High-quality male voice
+          voiceId: "EXAVITQu4vr4xnSDxM6t" // Sarah - Professional Female Voice
         },
         model: {
           provider: "groq",
@@ -215,6 +246,10 @@ Proceed with Phase 1 now.`;
           systemPrompt: finalPrompt,
           tools,
           temperature: 0.1 // Lowered for more precise extraction
+        },
+        metadata: {
+          schemaId: _req.body.assistantId, // Using assistantId as a proxy or direct schemaId if available
+          userId: _req.body.userId
         } 
       }),
     });
@@ -223,6 +258,18 @@ Proceed with Phase 1 now.`;
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ─── Error Handling ──────────────────────────────────────────────────────────
+// 404 for API
+app.use("/api", (req: any, res: any) => {
+  res.status(404).json({ error: `API Route ${req.method} ${req.originalUrl} not found` });
+});
+
+// Global catch-all
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("🔥 Server Error:", err);
+  res.status(err.status || 500).json({ error: err.message || "Internal Server Error" });
 });
 
 // ─── Start (Standard Node Only) ───────────────────────────────────────────────
