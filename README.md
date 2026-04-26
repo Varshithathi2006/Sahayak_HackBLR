@@ -338,3 +338,37 @@ services:
 ## 📄 License
 
 MIT © 2026 Team NeuroNova — HackBLR
+---
+
+## 🚀 Deployment Guide (Vercel)
+
+The project has been optimized for a **Unified Vercel Deployment**. The frontend (Next.js) and backend (Express) are now consolidated into a single build pipeline.
+
+### 1. Vercel Dashboard Settings
+When importing your repository into Vercel, use these settings:
+*   **Framework Preset:** Next.js
+*   **Root Directory:** `.` (The project root)
+*   **Build Command:** `npm run build`
+*   **Install Command:** `npm install`
+
+### 2. Required Environment Variables
+You **must** add these in **Project Settings > Environment Variables**:
+
+| Variable | Description |
+| :--- | :--- |
+| `VAPI_API_KEY` | Your Private Key from Vapi.ai Dashboard |
+| `GROQ_API_KEY` | Your API Key from Groq Console |
+| `MONGO_URI` | Your **Cloud** MongoDB connection string (e.g., MongoDB Atlas) |
+| `NEXT_PUBLIC_API_URL` | Your Vercel deployment URL (e.g., `https://sahayak.vercel.app`) |
+| `JWT_SECRET` | A secure random string for user authentication |
+| `QDRANT_URL` | Your Qdrant Cloud Cluster URL |
+| `QDRANT_API_KEY` | Your Qdrant Cloud API Key |
+
+### 3. Database Migration
+*   **MongoDB:** Vercel cannot connect to `localhost`. Ensure you create a free cluster on **MongoDB Atlas** and whitelist `0.0.0.0/0` (or Vercel's IP ranges) in the Atlas network settings.
+*   **Qdrant:** Use a hosted Qdrant instance. If you have data in a local Docker container, you will need to re-upload your knowledge docs through the **Bank Admin** panel in the deployed app.
+
+### 4. Vapi Webhook Sync
+Once deployed, go to the **Bank Admin** settings and update your **Assistant ID**. The system will automatically sync the new Vercel Webhook URL to Vapi, so your voice assistant knows where to send real-time data.
+
+---
