@@ -27,7 +27,7 @@ export default function Error({
       </div>
       <h1 className="text-2xl font-semibold mb-2">Something went wrong</h1>
       <p className="text-white/40 max-w-xs mb-8">
-        An unexpected error occurred in the NeuroNova interface. We've been notified.
+        An unexpected error occurred in the NeuroNova interface. We&apos;ve been notified.
       </p>
       <button
         onClick={() => reset()}

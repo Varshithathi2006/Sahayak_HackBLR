@@ -343,7 +343,7 @@ export default function BankDashboard() {
                       </div>
                       <div className="pt-4 border-t border-white/5">
                         <p className="text-xs text-white/30 leading-relaxed mb-4">
-                          Security Note: Your organization is using Sahayak's secure VPC for all voice and knowledge-base operations. 
+                          Security Note: Your organization is using Sahayak&apos;s secure VPC for all voice and knowledge-base operations. 
                           All documents uploaded are encrypted at rest and only accessible by your regional node.
                         </p>
                         <button className="px-4 py-2 rounded-lg text-xs font-medium text-white/40 cursor-not-allowed" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>

@@ -21,7 +21,7 @@ export interface GlossaryEntry {
   example?: string;
 }
 
-export interface AgriSubsidyForm extends Record<string, any> {}
+export type AgriSubsidyForm = Record<string, any>;
 
 export interface UserProfile {
   userId: string;

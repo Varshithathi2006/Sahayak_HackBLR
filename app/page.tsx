@@ -272,7 +272,7 @@ export default function HomePage() {
             </h2>
             <p className="text-white/60 text-lg leading-relaxed mb-5">
               <strong className="text-white/90">Sahayak</strong> (meaning{" "}
-              <em>"helper"</em> in Hindi) is a multilingual AI-powered voice
+              <em>&quot;helper&quot;</em> in Hindi) is a multilingual AI-powered voice
               assistant designed to help rural citizens — farmers, daily-wage workers,
               and families with low digital literacy — fill government enrollment
               forms hands-free, in their own language.
