@@ -7,6 +7,7 @@ interface User {
   email: string;
   name: string;
   role: "client" | "bank";
+  orgId?: string;
 }
 
 interface AuthState {

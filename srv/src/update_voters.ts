@@ -14,7 +14,7 @@ async function updateVotersSchema() {
     }
 
     const newFields = [
-      ...voters.fields,
+      ...(voters as any).fields,
       {
         key: "aadhaarNumber",
         label: "Aadhaar Number",

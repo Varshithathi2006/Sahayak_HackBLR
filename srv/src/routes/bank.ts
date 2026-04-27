@@ -53,7 +53,7 @@ router.patch("/schemas/:id", authenticate, authorize(["bank"]), async (req: Auth
   try {
     const { name, description, fields } = req.body;
     const schema = await FormSchema.findOneAndUpdate(
-      { _id: new mongoose.Types.ObjectId(req.params.id) },
+      { _id: new mongoose.Types.ObjectId(req.params.id as string) },
       { name, description, fields, updatedAt: new Date() },
       { new: true }
     );
@@ -70,7 +70,7 @@ router.patch("/schemas/:id", authenticate, authorize(["bank"]), async (req: Auth
  */
 router.delete("/schemas/:id", authenticate, authorize(["bank"]), async (req: AuthRequest, res: Response) => {
   try {
-    const schema = await FormSchema.findByIdAndDelete(new mongoose.Types.ObjectId(req.params.id));
+    const schema = await FormSchema.findByIdAndDelete(new mongoose.Types.ObjectId(req.params.id as string));
     if (!schema) return res.status(404).json({ error: "Schema not found" });
     res.json({ success: true, message: "Schema deleted" });
   } catch (err: any) {

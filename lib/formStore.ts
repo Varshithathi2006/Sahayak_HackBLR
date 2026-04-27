@@ -2,16 +2,16 @@ import type { AgriSubsidyForm, FormFieldKey } from "./types";
 import { create } from "zustand";
 
 interface FormStore {
-  form: Record<string, any>;
+  form: Record<string, string | number | boolean | null>;
   skippedFields: Set<string>;
   callActive: boolean;
   sessionId: string;
   transcript: TranscriptLine[];
   returningUser: ReturnUserInfo | null;
   error: string | null;
-  rawError: any | null;
+  rawError: unknown | null;
   selectedLanguage: string;
-  activeSchema: any | null;
+  activeSchema: unknown | null;
 
   vapiCallId: string | null;
   sseStatus: "connecting" | "connected" | "disconnected";
@@ -27,9 +27,9 @@ interface FormStore {
   updateLatestTranscript: (line: TranscriptLine) => void;
   setReturningUser: (info: ReturnUserInfo | null) => void;
   setError: (error: string | null) => void;
-  setRawError: (rawError: any | null) => void;
+  setRawError: (rawError: unknown | null) => void;
   setLanguage: (lang: string) => void;
-  setSchema: (schema: any) => void;
+  setSchema: (schema: unknown) => void;
   resetForm: () => void;
 }
 
